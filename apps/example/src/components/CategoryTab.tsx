@@ -9,7 +9,13 @@ type CategoryTabProps = {
 
 export function CategoryTab({ label, active, onPress }: CategoryTabProps) {
   return (
-    <Pressable onPress={onPress} hitSlop={8} style={styles.tab}>
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      hitSlop={8}
+      style={styles.tab}
+    >
       <Text style={[styles.label, active && styles.labelActive]}>{label}</Text>
       <View style={[styles.underline, active && styles.underlineActive]} />
     </Pressable>
@@ -17,25 +23,9 @@ export function CategoryTab({ label, active, onPress }: CategoryTabProps) {
 }
 
 const styles = StyleSheet.create({
-  tab: {
-    paddingTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  label: {
-    ...type.tab,
-    fontWeight: "500",
-    color: colors.textTertiary,
-  },
-  labelActive: {
-    fontWeight: "600",
-    color: colors.text,
-  },
-  underline: {
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: "transparent",
-  },
-  underlineActive: {
-    backgroundColor: colors.accent,
-  },
+  tab: { paddingTop: spacing.md, gap: spacing.md },
+  label: { ...type.label, color: colors.inkTertiary },
+  labelActive: { color: colors.ink },
+  underline: { height: 2, borderRadius: 1 },
+  underlineActive: { backgroundColor: colors.espresso },
 });

@@ -1,3 +1,6 @@
+import type { OptionGroup } from "./options";
+import { MILK, SIZE, WARMING } from "./options";
+
 export type Category = {
   id: string;
   label: string;
@@ -9,7 +12,7 @@ export type MenuItem = {
   name: string;
   description: string;
   price: number;
-  tint: string;
+  options: OptionGroup[];
 };
 
 export const categories: Category[] = [
@@ -26,7 +29,7 @@ export const menu: MenuItem[] = [
     name: "Flat white",
     description: "Double ristretto with steamed whole milk",
     price: 4.2,
-    tint: "#EFE4D8",
+    options: [SIZE, MILK],
   },
   {
     id: "oat-cortado",
@@ -34,7 +37,7 @@ export const menu: MenuItem[] = [
     name: "Oat cortado",
     description: "Equal parts espresso and oat milk",
     price: 4.0,
-    tint: "#ECE6DA",
+    options: [],
   },
   {
     id: "cappuccino",
@@ -42,7 +45,7 @@ export const menu: MenuItem[] = [
     name: "Cappuccino",
     description: "Espresso, steamed milk, deep foam",
     price: 4.1,
-    tint: "#F1E7DF",
+    options: [SIZE, MILK],
   },
   {
     id: "batch-filter",
@@ -50,7 +53,7 @@ export const menu: MenuItem[] = [
     name: "Batch filter",
     description: "This week: washed Ethiopia, Guji",
     price: 3.4,
-    tint: "#E6E9E1",
+    options: [SIZE],
   },
   {
     id: "mocha",
@@ -58,7 +61,7 @@ export const menu: MenuItem[] = [
     name: "Mocha",
     description: "Espresso, 70% dark chocolate, milk",
     price: 4.6,
-    tint: "#EADFD7",
+    options: [SIZE, MILK],
   },
   {
     id: "espresso",
@@ -66,7 +69,7 @@ export const menu: MenuItem[] = [
     name: "Espresso",
     description: "Single origin, pulled 18 grams in, 36 out",
     price: 3.0,
-    tint: "#EDE3D9",
+    options: [],
   },
   {
     id: "doppio",
@@ -74,7 +77,7 @@ export const menu: MenuItem[] = [
     name: "Doppio",
     description: "Two shots of espresso, no milk",
     price: 3.5,
-    tint: "#EBE5DC",
+    options: [],
   },
   {
     id: "macchiato",
@@ -82,7 +85,7 @@ export const menu: MenuItem[] = [
     name: "Macchiato",
     description: "Espresso marked with a spoonful of foam",
     price: 3.3,
-    tint: "#F0E6DB",
+    options: [MILK],
   },
   {
     id: "cortado",
@@ -90,7 +93,7 @@ export const menu: MenuItem[] = [
     name: "Cortado",
     description: "Equal parts espresso and warm whole milk",
     price: 3.9,
-    tint: "#EEE5DA",
+    options: [MILK],
   },
   {
     id: "latte",
@@ -98,7 +101,7 @@ export const menu: MenuItem[] = [
     name: "Latte",
     description: "Double shot with silky steamed milk",
     price: 4.3,
-    tint: "#F2E9DF",
+    options: [SIZE, MILK],
   },
   {
     id: "americano",
@@ -106,7 +109,7 @@ export const menu: MenuItem[] = [
     name: "Americano",
     description: "Espresso topped with hot water",
     price: 3.4,
-    tint: "#E9E4DC",
+    options: [SIZE],
   },
   {
     id: "long-black",
@@ -114,7 +117,7 @@ export const menu: MenuItem[] = [
     name: "Long black",
     description: "Double espresso poured over hot water to keep the crema",
     price: 3.6,
-    tint: "#E8E3DB",
+    options: [SIZE],
   },
   {
     id: "piccolo",
@@ -122,7 +125,7 @@ export const menu: MenuItem[] = [
     name: "Piccolo",
     description: "Ristretto shot in a small glass with warm milk",
     price: 3.7,
-    tint: "#F0E7DC",
+    options: [MILK],
   },
   {
     id: "cafe-con-leche",
@@ -130,7 +133,7 @@ export const menu: MenuItem[] = [
     name: "Café con leche",
     description: "Strong espresso with scalded milk",
     price: 4.0,
-    tint: "#EFE6DA",
+    options: [SIZE, MILK],
   },
   {
     id: "affogato",
@@ -138,7 +141,7 @@ export const menu: MenuItem[] = [
     name: "Affogato",
     description: "Vanilla gelato drowned in a fresh double shot",
     price: 5.2,
-    tint: "#F3EBDD",
+    options: [],
   },
   {
     id: "vanilla-latte",
@@ -146,7 +149,7 @@ export const menu: MenuItem[] = [
     name: "Vanilla latte",
     description: "Latte with house-made vanilla bean syrup",
     price: 4.7,
-    tint: "#F3EADC",
+    options: [SIZE, MILK],
   },
   {
     id: "caramel-latte",
@@ -154,7 +157,7 @@ export const menu: MenuItem[] = [
     name: "Caramel latte",
     description: "Latte with salted caramel and a pinch of sea salt",
     price: 4.8,
-    tint: "#F1E6D5",
+    options: [SIZE, MILK],
   },
   {
     id: "hazelnut-latte",
@@ -162,7 +165,7 @@ export const menu: MenuItem[] = [
     name: "Hazelnut latte",
     description: "Latte with toasted hazelnut syrup",
     price: 4.8,
-    tint: "#EDE2D4",
+    options: [SIZE, MILK],
   },
   {
     id: "honey-oat-latte",
@@ -170,7 +173,7 @@ export const menu: MenuItem[] = [
     name: "Honey oat latte",
     description: "Espresso, oat milk and a spoonful of local honey",
     price: 4.9,
-    tint: "#F2E8D4",
+    options: [SIZE],
   },
   {
     id: "spanish-latte",
@@ -178,7 +181,7 @@ export const menu: MenuItem[] = [
     name: "Spanish latte",
     description: "Espresso with steamed milk and sweetened condensed milk",
     price: 4.9,
-    tint: "#F0E5D8",
+    options: [SIZE, MILK],
   },
   {
     id: "dirty-chai",
@@ -186,7 +189,7 @@ export const menu: MenuItem[] = [
     name: "Dirty chai",
     description: "House chai with a shot of espresso",
     price: 5.0,
-    tint: "#EDE1D3",
+    options: [SIZE, MILK],
   },
   {
     id: "turmeric-latte",
@@ -194,7 +197,7 @@ export const menu: MenuItem[] = [
     name: "Turmeric latte",
     description: "Turmeric, ginger and cinnamon with steamed milk, no coffee",
     price: 4.5,
-    tint: "#F3E9CF",
+    options: [SIZE, MILK],
   },
   {
     id: "single-origin-pour-over",
@@ -202,7 +205,7 @@ export const menu: MenuItem[] = [
     name: "Pour over",
     description: "Hand-brewed single origin, ask what is on the bar today",
     price: 4.6,
-    tint: "#E7E6DD",
+    options: [SIZE],
   },
   {
     id: "v60",
@@ -210,7 +213,7 @@ export const menu: MenuItem[] = [
     name: "V60",
     description: "Light roast Kenyan, bright and clean with blackcurrant notes",
     price: 5.0,
-    tint: "#E5E8E0",
+    options: [SIZE],
   },
   {
     id: "aeropress",
@@ -218,7 +221,7 @@ export const menu: MenuItem[] = [
     name: "Aeropress",
     description: "Medium roast Colombian, full body and low acidity",
     price: 4.8,
-    tint: "#E9E6DC",
+    options: [SIZE],
   },
   {
     id: "french-press",
@@ -226,7 +229,7 @@ export const menu: MenuItem[] = [
     name: "French press",
     description: "Four-minute immersion brew, served by the cup",
     price: 4.2,
-    tint: "#EAE4DA",
+    options: [SIZE],
   },
   {
     id: "hot-chocolate",
@@ -234,7 +237,7 @@ export const menu: MenuItem[] = [
     name: "Hot chocolate",
     description: "70% dark chocolate melted into steamed milk",
     price: 4.2,
-    tint: "#E9DDD4",
+    options: [SIZE, MILK],
   },
   {
     id: "decaf-flat-white",
@@ -242,7 +245,7 @@ export const menu: MenuItem[] = [
     name: "Decaf flat white",
     description: "Swiss water process decaf with steamed whole milk",
     price: 4.4,
-    tint: "#EEE5D9",
+    options: [SIZE, MILK],
   },
   {
     id: "babyccino",
@@ -250,7 +253,7 @@ export const menu: MenuItem[] = [
     name: "Babyccino",
     description: "Frothed milk with cocoa dusting, for the little ones",
     price: 1.5,
-    tint: "#F4EAE2",
+    options: [MILK],
   },
   {
     id: "coffee-flight",
@@ -258,7 +261,7 @@ export const menu: MenuItem[] = [
     name: "Coffee flight",
     description: "Espresso, cortado and filter side by side from the same bean",
     price: 7.5,
-    tint: "#EBE2D6",
+    options: [],
   },
   {
     id: "cold-brew",
@@ -266,7 +269,7 @@ export const menu: MenuItem[] = [
     name: "Cold brew",
     description: "Steeped for 18 hours, served over ice",
     price: 4.5,
-    tint: "#E3E7EA",
+    options: [SIZE],
   },
   {
     id: "iced-latte",
@@ -274,7 +277,7 @@ export const menu: MenuItem[] = [
     name: "Iced latte",
     description: "Double shot over cold milk and ice",
     price: 4.6,
-    tint: "#E8EAE6",
+    options: [SIZE, MILK],
   },
   {
     id: "espresso-tonic",
@@ -282,7 +285,7 @@ export const menu: MenuItem[] = [
     name: "Espresso tonic",
     description: "Tonic water, ice, a twist of orange",
     price: 4.8,
-    tint: "#F2EADB",
+    options: [SIZE],
   },
   {
     id: "chai-latte",
@@ -290,7 +293,7 @@ export const menu: MenuItem[] = [
     name: "Chai latte",
     description: "House-spiced black tea with milk",
     price: 4.2,
-    tint: "#F0E5D6",
+    options: [SIZE, MILK],
   },
   {
     id: "sencha",
@@ -298,7 +301,7 @@ export const menu: MenuItem[] = [
     name: "Sencha",
     description: "Japanese green tea, loose leaf",
     price: 3.2,
-    tint: "#E5EADF",
+    options: [SIZE],
   },
   {
     id: "earl-grey",
@@ -306,7 +309,7 @@ export const menu: MenuItem[] = [
     name: "Earl Grey",
     description: "Black tea with bergamot",
     price: 3.0,
-    tint: "#E7E4EA",
+    options: [SIZE],
   },
   {
     id: "cardamom-bun",
@@ -314,7 +317,7 @@ export const menu: MenuItem[] = [
     name: "Cardamom bun",
     description: "Swedish-style, baked this morning",
     price: 3.8,
-    tint: "#F2E8D9",
+    options: [WARMING],
   },
   {
     id: "croissant",
@@ -322,7 +325,7 @@ export const menu: MenuItem[] = [
     name: "Butter croissant",
     description: "Laminated with cultured butter",
     price: 3.4,
-    tint: "#F3EADC",
+    options: [WARMING],
   },
   {
     id: "banana-bread",
@@ -330,6 +333,12 @@ export const menu: MenuItem[] = [
     name: "Banana bread",
     description: "Toasted, with salted butter",
     price: 3.6,
-    tint: "#EEE4D6",
+    options: [WARMING],
   },
 ];
+
+export function menuItem(id: string) {
+  const item = menu.find((candidate) => candidate.id === id);
+  if (!item) throw new Error(`No menu item with id ${id}`);
+  return item;
+}

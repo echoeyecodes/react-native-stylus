@@ -12,11 +12,7 @@ type CategoryTabsProps = {
 export function CategoryTabs({ categories, activeId, onSelect }: CategoryTabsProps) {
   return (
     <View style={styles.container}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.row}
-      >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {categories.map((category) => (
           <CategoryTab
             key={category.id}
@@ -32,11 +28,9 @@ export function CategoryTabs({ categories, activeId, onSelect }: CategoryTabsPro
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: colors.background,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.line,
   },
-  row: {
-    paddingHorizontal: spacing.xl,
-    gap: spacing.xxl,
-  },
+  row: { paddingHorizontal: spacing.xl, gap: spacing.xxl },
 });

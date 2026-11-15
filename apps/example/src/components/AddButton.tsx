@@ -1,37 +1,34 @@
-import { Pressable, StyleSheet, Text } from "react-native";
-import { colors, radius, spacing, type } from "../theme";
+import { Plus } from "lucide-react-native";
+import { Pressable, StyleSheet } from "react-native";
+import { colors } from "../theme";
 
 type AddButtonProps = {
+  label: string;
   onPress: () => void;
 };
 
-export function AddButton({ onPress }: AddButtonProps) {
+export function AddButton({ label, onPress }: AddButtonProps) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={8}
       onPress={onPress}
-      hitSlop={6}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
     >
-      <Text style={styles.label}>Add</Text>
+      <Plus size={18} strokeWidth={2.4} color={colors.onEspresso} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
+    width: 34,
     height: 34,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.sm,
-    backgroundColor: colors.accentSoft,
+    borderRadius: 17,
+    backgroundColor: colors.espresso,
     alignItems: "center",
     justifyContent: "center",
   },
-  pressed: {
-    opacity: 0.6,
-  },
-  label: {
-    ...type.button,
-    fontSize: 14,
-    color: colors.accent,
-  },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.92 }] },
 });

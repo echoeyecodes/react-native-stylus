@@ -1,74 +1,84 @@
 import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { CartBar } from "../components/CartBar";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CategoryTabs } from "../components/CategoryTabs";
+import { Greeting } from "../components/Greeting";
+import { HomeHeader } from "../components/HomeHeader";
+import { ItemSheet } from "../components/ItemSheet";
 import { MenuItemRow } from "../components/MenuItemRow";
-import { ShopHeader } from "../components/ShopHeader";
-import { categories, menu } from "../data/menu";
+import { OrderBar } from "../components/OrderBar";
+import { OrderSheet } from "../components/OrderSheet";
+import { PhotoCard } from "../components/PhotoCard";
+import { SectionTitle } from "../components/SectionTitle";
+import { UsualCard } from "../components/UsualCard";
+import { categories, menu, menuItem, type MenuItem } from "../data/menu";
+import { customer, stories } from "../data/shop";
+import { useOrder } from "../order/order-context";
+import { defaultChoices } from "../order/order-line";
 import { colors, spacing } from "../theme";
 
-type Cart = Record<string, number>;
-
-function greetingForNow() {
-  const hour = new Date().getHours();
-  const [partOfDay, emoji] =
-    hour < 12 ? ["morning", "☀️"] : hour < 17 ? ["afternoon", "😎"] : ["evening", "🌙"];
-  return `Good ${partOfDay} ${emoji}. Pickup from Mill Street in about 8 min.`;
-}
+/** The position of the category tabs among the scroll view's children, so they stick under the status bar. */
+const TABS_INDEX = 7;
 
 export function MenuScreen() {
-  const [activeCategory, setActiveCategory] = useState(categories[0].id);
-  const [cart, setCart] = useState<Cart>({});
+  const insets = useSafeAreaInsets();
+  const order = useOrder();
+  const [categoryId, setCategoryId] = useState(categories[0]!.id);
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
+  const [orderOpen, setOrderOpen] = useState(false);
 
-  const items = menu.filter((item) => item.categoryId === activeCategory);
-  const count = Object.values(cart).reduce((sum, quantity) => sum + quantity, 0);
-  const total = menu.reduce((sum, item) => sum + (cart[item.id] ?? 0) * item.price, 0);
-
-  const addItem = (id: string) => {
-    setCart((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
-  };
-
-  const checkout = () => {
-    Alert.alert("Order placed", "We'll have it ready at Mill Street in about 8 minutes.");
-    setCart({});
-  };
+  const quantities = new Map<string, number>();
+  for (const line of order.lines) quantities.set(line.itemId, (quantities.get(line.itemId) ?? 0) + line.quantity);
+  const quickAdd = (item: MenuItem) => order.add(item.id, defaultChoices(item));
 
   return (
-    <View style={styles.screen}>
-      <SafeAreaView edges={["top"]} style={styles.main}>
-        <ShopHeader name="Daybreak Coffee" greeting={greetingForNow()} />
-        <CategoryTabs
-          categories={categories}
-          activeId={activeCategory}
-          onSelect={setActiveCategory}
-        />
-        <ScrollView contentContainerStyle={styles.list}>
-          {items.map((item) => (
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <ScrollView
+        stickyHeaderIndices={[TABS_INDEX]}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
+        <HomeHeader />
+        <Greeting />
+        <View style={styles.featured}>
+          <PhotoCard {...stories.featured} onPress={() => setOpenItemId(stories.featured.itemId)} />
+        </View>
+        <SectionTitle>Your usuals</SectionTitle>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.usuals}>
+          {customer.usuals.map((id) => {
+            const item = menuItem(id);
+            return <UsualCard key={id} item={item} onOpen={() => setOpenItemId(id)} onAdd={() => quickAdd(item)} />;
+          })}
+        </ScrollView>
+        <View style={styles.roastery}>
+          <PhotoCard {...stories.roastery} onPress={() => setOpenItemId(stories.roastery.itemId)} />
+        </View>
+        <SectionTitle>Menu</SectionTitle>
+        <CategoryTabs categories={categories} activeId={categoryId} onSelect={setCategoryId} />
+        {menu
+          .filter((item) => item.categoryId === categoryId)
+          .map((item) => (
             <MenuItemRow
               key={item.id}
               item={item}
-              quantity={cart[item.id] ?? 0}
-              onAdd={() => addItem(item.id)}
+              quantity={quantities.get(item.id) ?? 0}
+              onOpen={() => setOpenItemId(item.id)}
+              onAdd={() => quickAdd(item)}
             />
           ))}
-        </ScrollView>
-      </SafeAreaView>
-      <CartBar count={count} total={total} onCheckout={checkout} />
+      </ScrollView>
+
+      <OrderBar onPress={() => setOrderOpen(true)} />
+      <ItemSheet itemId={openItemId} onClose={() => setOpenItemId(null)} />
+      <OrderSheet open={orderOpen} onClose={() => setOrderOpen(false)} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  main: {
-    flex: 1,
-  },
-  list: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl,
-  },
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: { paddingBottom: 120 },
+  featured: { marginTop: spacing.xl },
+  roastery: { marginTop: spacing.xxl },
+  usuals: { paddingHorizontal: spacing.xl, gap: spacing.lg },
 });

@@ -1,0 +1,45 @@
+# Menu photo credits
+
+All photos are from Unsplash and used under the Unsplash License (https://unsplash.com/license).
+
+- `flat-white.jpg`: Esra Afşar, https://unsplash.com/photos/6kf38ukGYTA
+- `oat-cortado.jpg`: Daria Rudyk, https://unsplash.com/photos/TvXpVcgi9nw
+- `cappuccino.jpg`: T, https://unsplash.com/photos/UWidxu7nZNg
+- `batch-filter.jpg`: Nathan Dumlao, https://unsplash.com/photos/N3btvQ51dL0
+- `mocha.jpg`: Kitera Dent, https://unsplash.com/photos/gbNuQfm9hTE
+- `espresso.jpg`: Irene Kredenets, https://unsplash.com/photos/maO-qIKLqi8
+- `doppio.jpg`: Kevin Butz, https://unsplash.com/photos/BBFRIGifYQ8
+- `macchiato.jpg`: Jeremy Yap, https://unsplash.com/photos/jn-HaGWe4yw
+- `cortado.jpg`: Ben Moreland, https://unsplash.com/photos/eSzClaMXNkk
+- `latte.jpg`: tabitha turner, https://unsplash.com/photos/3n3mPoGko8g
+- `americano.jpg`: Gerson Cifuentes, https://unsplash.com/photos/JNhaaPEz3FY
+- `long-black.jpg`: Ben Kolde, https://unsplash.com/photos/-sKBWdCyBLg
+- `piccolo.jpg`: Jarek Ceborski, https://unsplash.com/photos/IhqDpFz7I8Q
+- `cafe-con-leche.jpg`: tabitha turner, https://unsplash.com/photos/G7wr5hhV3gw
+- `affogato.jpg`: Rich Gascho, https://unsplash.com/photos/AMMFbNolQKM
+- `vanilla-latte.jpg`: Hongwei FAN, https://unsplash.com/photos/qsp6AmOSG2o
+- `caramel-latte.jpg`: Phil Hearing, https://unsplash.com/photos/QXzdFy92CGY
+- `hazelnut-latte.jpg`: Yana Gorbunova, https://unsplash.com/photos/ZUu0zMQ1vKQ
+- `honey-oat-latte.jpg`: Mae Mu, https://unsplash.com/photos/vEzZOy2DmQE
+- `spanish-latte.jpg`: Winston Chen, https://unsplash.com/photos/nIZl9PuwMXk
+- `dirty-chai.jpg`: Korie Cull, https://unsplash.com/photos/aCOc0321Ask
+- `turmeric-latte.jpg`: Shoeib Abolhassani, https://unsplash.com/photos/tnIxZk_Wv7Y
+- `single-origin-pour-over.jpg`: Najib Kalil, https://unsplash.com/photos/BNHriM9hio4
+- `v60.jpg`: Julien Labelle, https://unsplash.com/photos/G163WX71GFE
+- `aeropress.jpg`: Monaz Hastam, https://unsplash.com/photos/tT_WIvHzH1Q
+- `french-press.jpg`: Ilinca Roman, https://unsplash.com/photos/FsbyRrEXBOI
+- `hot-chocolate.jpg`: Maddi Bazzocco, https://unsplash.com/photos/MjZq7A2RJxQ
+- `decaf-flat-white.jpg`: Sincerely Media, https://unsplash.com/photos/pXUarFyGwjo
+- `babyccino.jpg`: Karthick Gislen, https://unsplash.com/photos/GHnsgYYsY8M
+- `coffee-flight.jpg`: Nathan Dumlao, https://unsplash.com/photos/pMW4jzELQCw
+- `cold-brew.jpg`: Nadia Valko, https://unsplash.com/photos/WCmMU38zg1c
+- `iced-latte.jpg`: Nathan Dumlao, https://unsplash.com/photos/vZOZJH_xkUk
+- `espresso-tonic.jpg`: Felix Cha, https://unsplash.com/photos/PXDxKz3uPqY
+- `chai-latte.jpg`: Mae Mu, https://unsplash.com/photos/eNfR6MUyjBI
+- `sencha.jpg`: Na visky, https://unsplash.com/photos/3hRRT4qztzs
+- `earl-grey.jpg`: Sixteen Miles Out, https://unsplash.com/photos/lzQCA9sWpw0
+- `cardamom-bun.jpg`: Phil Hearing, https://unsplash.com/photos/vM5EPNWX3Ms
+- `croissant.jpg`: Vicky Nguyen, https://unsplash.com/photos/a4xoMVKzbak
+- `banana-bread.jpg`: Jeff Siepman, https://unsplash.com/photos/MssPSnkV1yM
+- `hero.jpg`: Fahmi Fakhrudin, https://unsplash.com/photos/nzyzAUsbV0M
+- `story.jpg`: Battlecreek Coffee Roasters, https://unsplash.com/photos/mY4hAwxNA_0

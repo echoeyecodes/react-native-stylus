@@ -1,4 +1,6 @@
-import { StyleProp, Text, TextStyle } from "react-native";
+import { Text, type StyleProp, type TextStyle } from "react-native";
+import { formatPrice } from "../order/order-line";
+import { colors, type } from "../theme";
 
 type PriceLabelProps = {
   amount: number;
@@ -6,5 +8,5 @@ type PriceLabelProps = {
 };
 
 export function PriceLabel({ amount, style }: PriceLabelProps) {
-  return <Text style={[{ fontVariant: ["tabular-nums"] }, style]}>${amount.toFixed(2)}</Text>;
+  return <Text style={[{ ...type.price, color: colors.ink }, style]}>{formatPrice(amount)}</Text>;
 }
