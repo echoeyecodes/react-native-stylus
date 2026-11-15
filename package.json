@@ -1,0 +1,8 @@
+{
+  "name": "stylus",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ]
+}

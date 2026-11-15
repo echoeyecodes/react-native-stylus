@@ -1,0 +1,308 @@
+import { createContext, use, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Animated,
+  PanResponder,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type GestureResponderHandlers,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type ScrollViewInstance,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { motion, themedStyles } from "../theme";
+import { useKeyboard } from "../use-keyboard";
+import { PulsingText } from "./pulsing-text";
+
+export type Detent = "compact" | "half" | "full";
+
+type SheetContextValue = {
+  panHandlers: GestureResponderHandlers;
+  onHeaderLayout: (event: LayoutChangeEvent) => void;
+  onFooterLayout: (event: LayoutChangeEvent) => void;
+  onContentHeight: (height: number) => void;
+  footerInset: number;
+};
+
+const SheetContext = createContext<SheetContextValue | null>(null);
+
+function useSheet() {
+  const value = use(SheetContext);
+  if (!value) throw new Error("Sheet parts must be used inside StylusSheet");
+  return value;
+}
+
+/** The middle height fits the conversation, up to this share of the screen. */
+const HALF = 0.55;
+const TOP_GAP = 8;
+/** A flick this fast carries the sheet past the height it was dragged nearest to. */
+const FLICK_MS = 150;
+/** Within this distance of the end, new output keeps the conversation scrolled to the bottom. */
+const STICK_DISTANCE = 48;
+
+type Props = {
+  detent: Detent;
+  onDetentChange: (detent: Detent) => void;
+  /** Without anything to read above the composer, the sheet stays compact. */
+  expandable: boolean;
+  /** Slides the sheet away while the developer picks another element. */
+  hidden: boolean;
+  children: ReactNode;
+};
+
+/**
+ * A bottom sheet that rests at three heights: just the composer, the conversation up to about
+ * half the screen, or nearly all of it. Its header drags it between them, and it rides above
+ * the keyboard.
+ */
+export function StylusSheet({ detent, onDetentChange, expandable, hidden, children }: Props) {
+  const styles = useStyles();
+  const window = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const keyboard = useKeyboard();
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [footerHeight, setFooterHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+
+  const compact = headerHeight + footerHeight;
+  const tallest = Math.max(compact, window.height - keyboard.height - insets.top - TOP_GAP);
+  const heights: Record<Detent, number> = {
+    compact,
+    half: Math.max(compact, Math.min(window.height * HALF, compact + contentHeight, tallest)),
+    full: tallest,
+  };
+  const target = heights[expandable ? detent : "compact"];
+  const measured = headerHeight > 0 && footerHeight > 0;
+
+  const height = useRef(new Animated.Value(0)).current;
+  const lift = useRef(new Animated.Value(0)).current;
+  const slide = useRef(new Animated.Value(1)).current;
+  const current = useRef(0);
+  const dragStart = useRef(0);
+
+  useEffect(() => {
+    const id = height.addListener(({ value }) => (current.current = value));
+    return () => height.removeListener(id);
+  }, [height]);
+
+  useEffect(() => {
+    if (!measured) return;
+    if (current.current === 0) {
+      height.setValue(target);
+      return;
+    }
+    Animated.timing(height, { toValue: target, duration: 320, easing: motion.easeOut, useNativeDriver: false }).start();
+  }, [height, measured, target]);
+
+  useEffect(() => {
+    Animated.timing(lift, {
+      toValue: keyboard.height,
+      duration: keyboard.duration,
+      easing: motion.easeOut,
+      useNativeDriver: false,
+    }).start();
+  }, [lift, keyboard]);
+
+  useEffect(() => {
+    Animated.timing(slide, {
+      toValue: hidden ? 1 : 0,
+      duration: 300,
+      easing: motion.easeOut,
+      useNativeDriver: true,
+    }).start();
+  }, [slide, hidden]);
+
+  // The responder outlives renders, so it reads the latest heights and detent from here.
+  const latest = useRef({ heights, detent, expandable, onDetentChange });
+  useEffect(() => {
+    latest.current = { heights, detent, expandable, onDetentChange };
+  });
+
+  const settle = (projected: number) => {
+    const { heights, detent, expandable, onDetentChange } = latest.current;
+    const allowed: Detent[] = expandable ? ["compact", "half", "full"] : ["compact"];
+    const next = allowed.reduce((best, candidate) =>
+      Math.abs(heights[candidate] - projected) < Math.abs(heights[best] - projected) ? candidate : best,
+    );
+    if (next !== detent) return onDetentChange(next);
+    Animated.timing(height, {
+      toValue: heights[next],
+      duration: 260,
+      easing: motion.easeOut,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const [pan] = useState(() =>
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_event, { dx, dy }) => Math.abs(dy) > 4 && Math.abs(dy) > Math.abs(dx),
+      onPanResponderGrant: () => {
+        height.stopAnimation();
+        dragStart.current = current.current;
+      },
+      onPanResponderMove: (_event, { dy }) => {
+        const { heights } = latest.current;
+        height.setValue(Math.min(Math.max(dragStart.current - dy, heights.compact), heights.full));
+      },
+      onPanResponderRelease: (_event, { dy, vy }) => settle(dragStart.current - dy - vy * FLICK_MS),
+      // The system takes over drags that reach the bottom edge, so a taken-over drag settles too.
+      onPanResponderTerminate: (_event, { dy, vy }) => settle(dragStart.current - dy - vy * FLICK_MS),
+    }),
+  );
+
+  const context: SheetContextValue = {
+    panHandlers: pan.panHandlers,
+    onHeaderLayout: (event) => setHeaderHeight(event.nativeEvent.layout.height),
+    onFooterLayout: (event) => setFooterHeight(event.nativeEvent.layout.height),
+    onContentHeight: setContentHeight,
+    footerInset: keyboard.height > 0 ? 10 : Math.max(insets.bottom, 10),
+  };
+
+  return (
+    <SheetContext value={context}>
+      <Animated.View
+        pointerEvents={hidden ? "none" : "box-none"}
+        style={[
+          StyleSheet.absoluteFill,
+          { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, target + 40] }) }] },
+        ]}
+      >
+        <Animated.View style={[styles.sheet, { bottom: lift, height: measured ? height : undefined }]}>
+          {children}
+        </Animated.View>
+      </Animated.View>
+    </SheetContext>
+  );
+}
+
+export function SheetHeader({ children }: { children: ReactNode }) {
+  const styles = useStyles();
+  const { panHandlers, onHeaderLayout } = useSheet();
+  return (
+    <View {...panHandlers} onLayout={onHeaderLayout} style={styles.header}>
+      <View style={styles.handle} />
+      <View style={styles.headerRow}>{children}</View>
+    </View>
+  );
+}
+
+type SheetTitleProps = {
+  title: string;
+  subtitle: string;
+  /** Pulses the subtitle while work is in progress. */
+  busy: boolean;
+};
+
+export function SheetTitle({ title, subtitle, busy }: SheetTitleProps) {
+  const styles = useStyles();
+  return (
+    <View style={styles.titleBlock}>
+      <Text style={styles.title}>{title}</Text>
+      {busy ? (
+        <PulsingText style={styles.subtitle}>{subtitle}</PulsingText>
+      ) : (
+        <Text style={styles.subtitle}>{subtitle}</Text>
+      )}
+    </View>
+  );
+}
+
+type SheetBodyProps = {
+  /** Scrolls to the newest output whenever this changes, such as when a message is sent. */
+  followKey?: unknown;
+  children: ReactNode;
+};
+
+/**
+ * The scrolling conversation. It follows new output until the developer drags it away from the end,
+ * and follows again once they drag back down or send something.
+ */
+export function SheetBody({ followKey, children }: SheetBodyProps) {
+  const styles = useStyles();
+  const { onContentHeight } = useSheet();
+  const scroll = useRef<ScrollViewInstance>(null);
+  const following = useRef(true);
+  // Only the developer's own scrolling decides whether to follow; scrolls Stylus starts would end mid-animation.
+  const dragged = useRef(false);
+
+  useEffect(() => {
+    following.current = true;
+    scroll.current?.scrollToEnd({ animated: true });
+  }, [followKey]);
+
+  const settle = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!dragged.current) return;
+    const { contentOffset, contentSize, layoutMeasurement } = nativeEvent;
+    following.current = contentSize.height - contentOffset.y - layoutMeasurement.height < STICK_DISTANCE;
+  };
+
+  return (
+    <ScrollView
+      ref={scroll}
+      style={styles.body}
+      onScrollBeginDrag={() => {
+        dragged.current = true;
+        following.current = false;
+      }}
+      onScrollEndDrag={settle}
+      onMomentumScrollEnd={(event) => {
+        settle(event);
+        dragged.current = false;
+      }}
+      onContentSizeChange={(_width, height) => {
+        onContentHeight(height);
+        if (following.current) scroll.current?.scrollToEnd({ animated: true });
+      }}
+      onLayout={() => {
+        if (following.current) scroll.current?.scrollToEnd({ animated: false });
+      }}
+      keyboardDismissMode="interactive"
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={styles.bodyContent}
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
+export function SheetFooter({ children }: { children: ReactNode }) {
+  const styles = useStyles();
+  const { onFooterLayout, footerInset } = useSheet();
+  return (
+    <View onLayout={onFooterLayout} style={[styles.footer, { paddingBottom: footerInset }]}>
+      {children}
+    </View>
+  );
+}
+
+const useStyles = themedStyles((palette) =>
+  StyleSheet.create({
+    sheet: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      overflow: "hidden",
+      backgroundColor: palette.sheet,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      borderCurve: "continuous",
+      borderWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: 0,
+      borderColor: palette.sheetBorder,
+      boxShadow: palette.sheetShadow,
+    },
+    header: { paddingTop: 8, paddingHorizontal: 20, paddingBottom: 10 },
+    handle: { alignSelf: "center", width: 36, height: 5, borderRadius: 3, backgroundColor: palette.handle },
+    headerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 10 },
+    titleBlock: { flex: 1, gap: 1 },
+    title: { color: palette.text, fontSize: 17, fontWeight: "600", letterSpacing: -0.2 },
+    subtitle: { color: palette.tertiary, fontSize: 13 },
+    body: { flex: 1 },
+    bodyContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, gap: 28 },
+    footer: { paddingHorizontal: 12, paddingTop: 6 },
+  }),
+);
