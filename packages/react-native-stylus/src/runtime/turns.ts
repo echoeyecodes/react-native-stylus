@@ -1,4 +1,4 @@
-import type { CheckStatus, DiffHunk, ToolName, TurnComponent, TurnEvent } from "../shared/protocol";
+import type { CheckStatus, DiffHunk, Rect, Screenshot, ToolName, TurnComponent, TurnEvent } from "../shared/protocol";
 
 export type ReasoningPart = {
   kind: "reasoning";
@@ -52,6 +52,12 @@ export type Turn = {
   request: string;
   /** The picked component, as it was when the request was sent. */
   target: { name: string; file: string; line: number };
+  /** Where the picked element was on screen, in the same coordinates as the screenshots. */
+  frame: Rect | null;
+  /** The app as it was when the request was sent. */
+  before: Screenshot | null;
+  /** The app once the turn's edits ran without crashing. */
+  after: Screenshot | null;
   parts: Part[];
   status: TurnStatus;
   /** Set once the turn finishes, and used to undo it. */

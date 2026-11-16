@@ -4,7 +4,7 @@ export type Segment =
   | { kind: "activity"; key: string; parts: Exclude<Part, TextPart>[] }
   | { kind: "text"; key: string; part: TextPart };
 
-/** Groups consecutive steps into one card, keeping Claude's words between them. */
+/** Groups consecutive steps into one list, keeping Claude's words between them. */
 export function segmentParts(parts: Part[]): Segment[] {
   const segments: Segment[] = [];
   for (const part of parts) {

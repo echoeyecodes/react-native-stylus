@@ -41,8 +41,8 @@ export function createStylusRoutes(options: AgentSessionOptions) {
     const entry = sessions.get(id);
     if (!entry) return;
     clearTimeout(entry.idleTimer);
-    entry.session.close();
     sessions.delete(id);
+    void entry.session.close();
   }
 
   function createSession(res: ServerResponse) {

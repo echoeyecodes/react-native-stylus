@@ -1,14 +1,12 @@
-import { StyleSheet, Text } from "react-native";
-import { themedStyles } from "../theme";
+import { View } from "react-native";
+import { usePalette } from "../theme";
+import { Icon } from "./icon";
 
 export function Chevron({ expanded }: { expanded: boolean }) {
-  const styles = useStyles();
-  return <Text style={[styles.chevron, expanded && styles.expanded]}>›</Text>;
+  const palette = usePalette();
+  return (
+    <View style={expanded && { transform: [{ rotate: "180deg" }] }}>
+      <Icon name="chevron-down" color={palette.tertiary} size={15} />
+    </View>
+  );
 }
-
-const useStyles = themedStyles((palette) =>
-  StyleSheet.create({
-    chevron: { color: palette.tertiary, fontSize: 18, lineHeight: 20, transform: [{ rotate: "90deg" }] },
-    expanded: { transform: [{ rotate: "-90deg" }] },
-  }),
-);

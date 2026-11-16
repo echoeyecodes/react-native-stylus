@@ -18,7 +18,7 @@ import { motion, themedStyles } from "../theme";
 import { useKeyboard } from "../use-keyboard";
 import { PulsingText } from "./pulsing-text";
 
-export type Detent = "compact" | "half" | "full";
+export type Detent = "half" | "full";
 
 type SheetContextValue = {
   panHandlers: GestureResponderHandlers;
@@ -36,8 +36,12 @@ function useSheet() {
   return value;
 }
 
-/** The middle height fits the conversation, up to this share of the screen. */
+/** The half height fits the conversation, up to this share of the screen. */
 const HALF = 0.55;
+/** The least room the half height leaves for the conversation. */
+const MIN_BODY = 160;
+/** Dragged this far below the half height, the sheet goes away. */
+const DISMISS_DISTANCE = 80;
 const TOP_GAP = 8;
 /** A flick this fast carries the sheet past the height it was dragged nearest to. */
 const FLICK_MS = 150;
@@ -47,19 +51,21 @@ const STICK_DISTANCE = 48;
 type Props = {
   detent: Detent;
   onDetentChange: (detent: Detent) => void;
-  /** Without anything to read above the composer, the sheet stays compact. */
-  expandable: boolean;
-  /** Slides the sheet away while the developer picks another element. */
+  /** Called when the sheet is dragged down past its half height. */
+  onDismiss: () => void;
+  /** Slides the sheet off screen. */
   hidden: boolean;
+  /** Called once the sheet has finished sliding off screen. */
+  onHidden?: () => void;
   children: ReactNode;
 };
 
 /**
- * A bottom sheet that rests at three heights: just the composer, the conversation up to about
- * half the screen, or nearly all of it. Its header drags it between them, and it rides above
- * the keyboard.
+ * A bottom sheet that rests at two heights: the conversation up to about half the screen, or
+ * nearly all of it. Its header drags it between them or down and away, and it rides above the
+ * keyboard.
  */
-export function StylusSheet({ detent, onDetentChange, expandable, hidden, children }: Props) {
+export function StylusSheet({ detent, onDetentChange, onDismiss, hidden, onHidden, children }: Props) {
   const styles = useStyles();
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -71,11 +77,10 @@ export function StylusSheet({ detent, onDetentChange, expandable, hidden, childr
   const compact = headerHeight + footerHeight;
   const tallest = Math.max(compact, window.height - keyboard.height - insets.top - TOP_GAP);
   const heights: Record<Detent, number> = {
-    compact,
-    half: Math.max(compact, Math.min(window.height * HALF, compact + contentHeight, tallest)),
+    half: Math.min(Math.max(compact + MIN_BODY, Math.min(window.height * HALF, compact + contentHeight)), tallest),
     full: tallest,
   };
-  const target = heights[expandable ? detent : "compact"];
+  const target = heights[detent];
   const measured = headerHeight > 0 && footerHeight > 0;
 
   const height = useRef(new Animated.Value(0)).current;
@@ -107,27 +112,27 @@ export function StylusSheet({ detent, onDetentChange, expandable, hidden, childr
     }).start();
   }, [lift, keyboard]);
 
+  // The responder and the slide's completion outlive renders, so they read the latest props from here.
+  const latest = useRef({ compact, heights, detent, onDetentChange, onDismiss, onHidden });
+  useEffect(() => {
+    latest.current = { compact, heights, detent, onDetentChange, onDismiss, onHidden };
+  });
+
   useEffect(() => {
     Animated.timing(slide, {
       toValue: hidden ? 1 : 0,
-      duration: 300,
+      duration: hidden ? 260 : 340,
       easing: motion.easeOut,
       useNativeDriver: true,
-    }).start();
+    }).start(({ finished }) => {
+      if (finished && hidden) latest.current.onHidden?.();
+    });
   }, [slide, hidden]);
 
-  // The responder outlives renders, so it reads the latest heights and detent from here.
-  const latest = useRef({ heights, detent, expandable, onDetentChange });
-  useEffect(() => {
-    latest.current = { heights, detent, expandable, onDetentChange };
-  });
-
   const settle = (projected: number) => {
-    const { heights, detent, expandable, onDetentChange } = latest.current;
-    const allowed: Detent[] = expandable ? ["compact", "half", "full"] : ["compact"];
-    const next = allowed.reduce((best, candidate) =>
-      Math.abs(heights[candidate] - projected) < Math.abs(heights[best] - projected) ? candidate : best,
-    );
+    const { heights, detent, onDetentChange, onDismiss } = latest.current;
+    if (projected < heights.half - DISMISS_DISTANCE) return onDismiss();
+    const next = Math.abs(heights.full - projected) < Math.abs(heights.half - projected) ? "full" : "half";
     if (next !== detent) return onDetentChange(next);
     Animated.timing(height, {
       toValue: heights[next],
@@ -145,8 +150,8 @@ export function StylusSheet({ detent, onDetentChange, expandable, hidden, childr
         dragStart.current = current.current;
       },
       onPanResponderMove: (_event, { dy }) => {
-        const { heights } = latest.current;
-        height.setValue(Math.min(Math.max(dragStart.current - dy, heights.compact), heights.full));
+        const { compact, heights } = latest.current;
+        height.setValue(Math.min(Math.max(dragStart.current - dy, compact), heights.full));
       },
       onPanResponderRelease: (_event, { dy, vy }) => settle(dragStart.current - dy - vy * FLICK_MS),
       // The system takes over drags that reach the bottom edge, so a taken-over drag settles too.
@@ -168,7 +173,7 @@ export function StylusSheet({ detent, onDetentChange, expandable, hidden, childr
         pointerEvents={hidden ? "none" : "box-none"}
         style={[
           StyleSheet.absoluteFill,
-          { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, target + 40] }) }] },
+          { transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [0, window.height] }) }] },
         ]}
       >
         <Animated.View style={[styles.sheet, { bottom: lift, height: measured ? height : undefined }]}>

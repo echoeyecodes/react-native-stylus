@@ -8,22 +8,16 @@ export function DeviceCheckRow({ part }: { part: DevicePart }) {
   const styles = useStyles();
   const [expanded, setExpanded] = useState(true);
 
-  if (part.status !== "failed") {
-    return (
-      <ActivityRow
-        status={part.status === "running" ? "running" : "done"}
-        label={part.status === "running" ? "Checking on device" : "Checked on device"}
-      />
-    );
-  }
+  if (part.status === "running") return <ActivityRow status="running" label="Running on device" />;
+  if (part.status === "passed") return <ActivityRow status="done" label="Ran on device" fact="No crashes" />;
 
   const where = part.location;
   return (
     <>
       <ActivityRow
         status="failed"
-        label={where ? `Crashed in ${where.name}` : "Crashed on device"}
-        failureText={null}
+        label="Ran on device"
+        fact={where ? `Crashed in ${where.name}` : "Crashed"}
         expanded={expanded}
         onToggle={() => setExpanded((value) => !value)}
       />

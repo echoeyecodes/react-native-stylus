@@ -4,7 +4,8 @@
   "description": "Point at any element in your running React Native app, say what to change, and watch it update.",
   "license": "MIT",
   "files": [
-    "dist"
+    "dist",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "exports": {
     ".": {
@@ -26,6 +27,7 @@
     "react": "*",
     "react-native": "*",
     "react-native-safe-area-context": "*",
+    "react-native-svg": "*",
     "react-native-view-shot": "*"
   },
   "dependencies": {
@@ -37,6 +39,7 @@
     "react": "19.3.0",
     "react-native": "0.88.1",
     "react-native-safe-area-context": "~5.11.1",
+    "react-native-svg": "15.16.0",
     "react-native-view-shot": "6.1.1",
     "typescript": "~6.0.3"
   }

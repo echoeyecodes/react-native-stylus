@@ -7,7 +7,7 @@ Stylus runs only in development. In production builds `<Stylus>` renders its chi
 ## Setup
 
 ```sh
-npm install react-native-stylus react-native-view-shot react-native-safe-area-context
+npm install react-native-stylus react-native-view-shot react-native-safe-area-context react-native-svg
 ```
 
 Add Stylus to your Metro config:
@@ -42,10 +42,10 @@ Edits are made by Claude Code on the machine running Metro, so it uses the accou
 
 - **Hold two fingers** on the screen for half a second to start. In the iOS Simulator, hold Option to show two touch points, then click and hold.
 - **Tap an element.** Dragging previews what is under your finger, and lifting picks it.
-- A sheet opens with the components around the element and the file and line of the selected one. Tap a name to edit that component instead, or **Change** to pick another element.
-- **Describe the change** and send it. Keyboard dictation works well here. The app stays usable while Claude works, and the send button becomes a stop button.
-- The conversation shows each request, Claude's reasoning when it reasons, every file it read or searched, each edit with its diff, and its reply. Drag the sheet's header to see more of the app or more of the conversation.
-- **Undo** puts back the files changed by the latest request. Undo again to go further back.
+- **Describe the change** in the field above the keyboard. The app slides up so the element stays in view. The element's name opens the components around it, with the file and line of the selected one; tap a name to edit that component instead. Keyboard dictation works well here.
+- While Claude works, a bar at the top of the screen shows the current step, and the app stays usable. Fast Refresh holds Claude's edits until it finishes and then applies them together, so the app never runs a half-made change. Stop puts back anything it had edited and returns your request to the field.
+- When the change lands, the bar shows the changed element, Claude's summary, and the file and lines changed. **Hold Compare** to see the screen as it was before. **Undo** puts back the files. Swipe the bar up to close Stylus.
+- **Tap the bar** for the full conversation: each request, Claude's reasoning, every file it read or searched, each edit with its diff, the checks, and its reply. Undo there goes further back, one request at a time. Drag the conversation down to return to the bar.
 
 ## When a change breaks the app
 
@@ -70,6 +70,7 @@ module.exports = withStylus(getDefaultConfig(__dirname), { model: "opus" });
 - **Finding the code.** In development React records a stack trace wherever a JSX element is created. Stylus symbolicates those traces through Metro's `/symbolicate` endpoint, as LogBox does, which gives the exact file and line of every JSX element around the one you touched. Elements created inside libraries are left out.
 - **Making the change.** `withStylus` adds a few routes to Metro. Each session runs one Claude Code conversation through the Agent SDK. The conversation starts while you are still picking, so the CLI is ready when you send. Each request carries the component path, a screenshot of the app, and the current source of the picked element's file, so Claude can usually edit on its first step.
 - **Undo.** Claude Code checkpoints every file before editing it. Undo and Stop restore the checkpoint taken before that request.
+- **Holding updates.** During a request Stylus turns Fast Refresh off through React Native's dev settings, and Metro's client queues the updates that arrive. Turning it back on applies them as one update. The setting persists across launches, so Stylus turns Fast Refresh on when it starts, in case a request was cut short.
 - **Checks.** The type check runs in a worker thread inside Metro and keeps TypeScript's language service warm, so a check after an edit takes tens of milliseconds and never stalls bundling. It runs from a Claude Code Stop hook, which is how errors reach Claude before it can finish. Crashes are caught by an error boundary around your app and by React Native's global error handler.
 - **Limits.** Claude can read and edit files in the project and in other workspace folders Metro watches, and nothing else. It can't run commands.
 

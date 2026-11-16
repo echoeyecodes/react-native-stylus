@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, TextInput, View, type TextInputInstance } 
 import type { Target } from "../use-stylus";
 import { themedStyles, usePalette } from "../theme";
 import { ComponentPath } from "./component-path";
-import { TextButton } from "./text-button";
+import { Icon } from "./icon";
+import { IconButton } from "./icon-button";
 
 type ComposerContextValue = {
   draft: string;
@@ -13,6 +14,8 @@ type ComposerContextValue = {
   /** Sends `value` when given, otherwise the draft. */
   submit: (value?: string) => void;
   stop: () => void;
+  pathOpen: boolean;
+  setPathOpen: (open: boolean) => void;
 };
 
 const ComposerContext = createContext<ComposerContextValue | null>(null);
@@ -24,8 +27,8 @@ function useComposer() {
 }
 
 type ComposerProps = {
-  /** Text to put back in the field. A new `version` puts it back again. */
-  restore: { text: string; version: number };
+  draft: string;
+  onDraftChange: (draft: string) => void;
   /** A turn is streaming, so the button stops it instead of sending. */
   running: boolean;
   /** Nothing can be sent right now, such as while a change is checked on the device. */
@@ -35,48 +38,93 @@ type ComposerProps = {
   children: ReactNode;
 };
 
-export function Composer({ restore, running, disabled, onSend, onStop, children }: ComposerProps) {
+export function Composer({ draft, onDraftChange, running, disabled, onSend, onStop, children }: ComposerProps) {
   const styles = useStyles();
-  const [draft, setDraft] = useState("");
-
-  useEffect(() => {
-    if (restore.version > 0) setDraft(restore.text);
-  }, [restore.version, restore.text]);
+  const [pathOpen, setPathOpen] = useState(false);
 
   const submit = (value = draft) => {
     const message = value.trim();
     if (!message || running || disabled) return;
     onSend(message);
-    setDraft("");
+    onDraftChange("");
+    setPathOpen(false);
   };
 
   return (
     <ComposerContext
-      value={{ draft, setDraft, canSend: draft.trim() !== "" && !running && !disabled, running, submit, stop: onStop }}
+      value={{
+        draft,
+        setDraft: onDraftChange,
+        canSend: draft.trim() !== "" && !running && !disabled,
+        running,
+        submit,
+        stop: onStop,
+        pathOpen,
+        setPathOpen,
+      }}
     >
       <View style={styles.composer}>{children}</View>
     </ComposerContext>
   );
 }
 
-type ComposerTargetProps = {
+type ComposerPathProps = {
   target: Target | null;
   onSelectLevel: (index: number) => void;
-  onChange: () => void;
+  onPick: () => void;
 };
 
-/** The element the next request is about, with a way to pick another. */
-export function ComposerTarget({ target, onSelectLevel, onChange }: ComposerTargetProps) {
+/** The picked element's place in the component tree, shown when its name is tapped. */
+export function ComposerPath({ target, onSelectLevel, onPick }: ComposerPathProps) {
   const styles = useStyles();
+  const { pathOpen } = useComposer();
+  if (!pathOpen) return null;
+
   return (
-    <View style={styles.target}>
+    <View style={styles.path}>
       {target ? (
         <ComponentPath target={target} onSelect={onSelectLevel} />
       ) : (
-        <Text style={styles.noTarget}>Requests apply to the whole app</Text>
+        <Text style={styles.wholeApp}>Requests apply to the whole app</Text>
       )}
-      <TextButton label={target ? "Change" : "Pick an element"} tone="link" onPress={onChange} />
+      <IconButton
+        icon="inspect"
+        label={target ? "Pick another element" : "Pick an element"}
+        size="small"
+        onPress={onPick}
+      />
     </View>
+  );
+}
+
+export function ComposerRow({ children }: { children: ReactNode }) {
+  const styles = useStyles();
+  return <View style={styles.row}>{children}</View>;
+}
+
+/** The element the next request is about. */
+export function ComposerTarget({ target }: { target: Target | null }) {
+  const styles = useStyles();
+  const palette = usePalette();
+  const { pathOpen, setPathOpen } = useComposer();
+  const name = target?.components[target.selected]?.name ?? "Whole app";
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${name}, show component path`}
+      accessibilityState={{ expanded: pathOpen }}
+      hitSlop={6}
+      onPress={() => setPathOpen(!pathOpen)}
+      style={({ pressed }) => [styles.target, pressed && styles.pressed]}
+    >
+      <Text numberOfLines={1} style={[styles.targetName, !target && styles.targetNone]}>
+        {name}
+      </Text>
+      <View style={pathOpen && styles.flipped}>
+        <Icon name="chevron-down" color={target ? palette.accent : palette.secondary} size={15} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -87,18 +135,20 @@ export function ComposerField({ children }: { children: ReactNode }) {
 
 type ComposerInputProps = {
   placeholder: string;
-  /** The field takes focus whenever this changes, such as when a new element is picked. */
+  autoFocus?: boolean;
+  /** The field takes focus when this changes after mounting, such as when another element is picked. */
   focusKey?: unknown;
 };
 
-export function ComposerInput({ placeholder, focusKey }: ComposerInputProps) {
+export function ComposerInput({ placeholder, autoFocus, focusKey }: ComposerInputProps) {
   const styles = useStyles();
   const palette = usePalette();
   const { draft, setDraft, submit } = useComposer();
   const input = useRef<TextInputInstance>(null);
+  const mountedKey = useRef(focusKey);
 
   useEffect(() => {
-    if (focusKey !== undefined) input.current?.focus();
+    if (focusKey !== mountedKey.current) input.current?.focus();
   }, [focusKey]);
 
   return (
@@ -110,6 +160,7 @@ export function ComposerInput({ placeholder, focusKey }: ComposerInputProps) {
       placeholderTextColor={palette.tertiary}
       selectionColor={palette.accent}
       keyboardAppearance={palette.keyboard}
+      autoFocus={autoFocus}
       multiline
       submitBehavior="submit"
       returnKeyType="send"
@@ -123,6 +174,7 @@ export function ComposerInput({ placeholder, focusKey }: ComposerInputProps) {
 /** Sends the draft, or stops the change in progress. */
 export function ComposerSubmit() {
   const styles = useStyles();
+  const palette = usePalette();
   const { canSend, running, submit, stop } = useComposer();
   const active = running || canSend;
 
@@ -140,24 +192,30 @@ export function ComposerSubmit() {
         pressed && styles.pressed,
       ]}
     >
-      {running ? <View style={styles.stop} /> : <Text style={[styles.arrow, !active && styles.arrowIdle]}>↑</Text>}
+      <Icon name={running ? "stop" : "arrow-up"} color={active ? palette.onAccent : palette.tertiary} size={18} />
     </Pressable>
   );
 }
 
 const useStyles = themedStyles((palette) =>
   StyleSheet.create({
-    composer: { gap: 10 },
-    target: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 8 },
-    noTarget: { flex: 1, color: palette.tertiary, fontSize: 14 },
+    composer: { gap: 8 },
+    path: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 6, paddingTop: 2 },
+    wholeApp: { flex: 1, color: palette.tertiary, fontSize: 14 },
+    row: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
+    target: { flexDirection: "row", alignItems: "center", gap: 2, maxWidth: 132, height: 44, paddingHorizontal: 6 },
+    targetName: { flexShrink: 1, color: palette.accent, fontSize: 14.5, fontWeight: "600" },
+    targetNone: { color: palette.secondary },
+    flipped: { transform: [{ rotate: "180deg" }] },
     field: {
+      flex: 1,
       flexDirection: "row",
       alignItems: "flex-end",
       gap: 8,
-      paddingLeft: 16,
-      paddingRight: 6,
-      paddingVertical: 6,
-      borderRadius: 24,
+      paddingLeft: 14,
+      paddingRight: 5,
+      paddingVertical: 5,
+      borderRadius: 22,
       borderCurve: "continuous",
       backgroundColor: palette.surface,
     },
@@ -175,8 +233,5 @@ const useStyles = themedStyles((palette) =>
     submitActive: { backgroundColor: palette.accent },
     submitIdle: { backgroundColor: palette.surfaceRaised },
     pressed: { opacity: 0.8, transform: [{ scale: 0.94 }] },
-    arrow: { color: palette.onAccent, fontSize: 18, fontWeight: "700", marginTop: -1 },
-    arrowIdle: { color: palette.tertiary },
-    stop: { width: 11, height: 11, borderRadius: 3, backgroundColor: palette.onAccent },
   }),
 );

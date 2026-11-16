@@ -1,0 +1,21 @@
+import { StyleSheet, Text } from "react-native";
+import type { LineCounts as Counts } from "../turn-summary";
+import { themedStyles } from "../theme";
+
+/** Lines added and removed, as in "+3 −1". */
+export function LineCounts({ counts }: { counts: Counts }) {
+  const styles = useStyles();
+  return (
+    <Text style={styles.counts}>
+      <Text style={styles.added}>+{counts.added}</Text> <Text style={styles.removed}>−{counts.removed}</Text>
+    </Text>
+  );
+}
+
+const useStyles = themedStyles((palette) =>
+  StyleSheet.create({
+    counts: { fontWeight: "600", fontVariant: ["tabular-nums"] },
+    added: { color: palette.added },
+    removed: { color: palette.removed },
+  }),
+);

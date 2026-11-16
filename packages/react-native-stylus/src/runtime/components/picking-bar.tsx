@@ -1,8 +1,8 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { Hover } from "../use-stylus";
 import { themedStyles } from "../theme";
+import { IconButton } from "./icon-button";
 import { PanelCard } from "./panel-card";
-import { TextButton } from "./text-button";
 
 type Props = {
   hover: Hover | null;
@@ -18,7 +18,7 @@ export function PickingBar({ hover, message, onCancel }: Props) {
         <Text numberOfLines={2} style={[styles.text, hover && styles.name]}>
           {hover?.name ?? message ?? "Tap an element to edit it."}
         </Text>
-        <TextButton label="Cancel" onPress={onCancel} />
+        <IconButton icon="x" label="Cancel" onPress={onCancel} />
       </View>
     </PanelCard>
   );

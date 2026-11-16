@@ -7,7 +7,6 @@ import { ActivityDetail, ActivityRow } from "./activity";
 export function CheckRow({ part }: { part: CheckPart }) {
   const styles = useStyles();
   const [expanded, setExpanded] = useState(false);
-  const files = part.files.join(", ");
   const failed = part.status === "failed";
   const count = part.problems.length;
 
@@ -15,8 +14,8 @@ export function CheckRow({ part }: { part: CheckPart }) {
     <>
       <ActivityRow
         status={failed ? "failed" : "done"}
-        label={failed ? `Found ${count} ${count === 1 ? "error" : "errors"} in ${files}` : `Checked ${files}`}
-        failureText={null}
+        label="Type check"
+        fact={failed ? `${count} ${count === 1 ? "error" : "errors"}` : "No new errors"}
         expanded={expanded}
         onToggle={failed ? () => setExpanded((value) => !value) : undefined}
       />

@@ -5,11 +5,20 @@ const HOLD_MS = 500;
 /** Fingers resting on glass drift a little; more than this is a pinch or a scroll. */
 const SLOP = 12;
 
-type TouchHandlers = Pick<ViewProps, "onTouchStart" | "onTouchMove" | "onTouchEnd" | "onTouchCancel">;
+type TouchHandlers = Pick<
+  ViewProps,
+  | "onTouchStart"
+  | "onTouchMove"
+  | "onTouchEnd"
+  | "onTouchCancel"
+  | "onStartShouldSetResponderCapture"
+  | "onResponderTerminate"
+>;
 
 /**
- * Calls `onHold` when two fingers rest on the screen. Uses touch events, which reach every
- * ancestor without claiming the responder, so the app keeps handling the same touches.
+ * Calls `onHold` when two fingers rest on the screen. One-finger touches pass through to the app
+ * untouched. When a second finger lands, the touch is claimed from the app, which cancels any
+ * press underway, so the hold isn't also taken as a tap on whatever the first finger was on.
  */
 export function useTwoFingerHold(onHold: () => void, enabled: boolean): TouchHandlers {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -26,6 +35,8 @@ export function useTwoFingerHold(onHold: () => void, enabled: boolean): TouchHan
   if (!enabled) return {};
 
   return {
+    onStartShouldSetResponderCapture: (event: GestureResponderEvent) => event.nativeEvent.touches.length === 2,
+    onResponderTerminate: cancel,
     onTouchStart(event: GestureResponderEvent) {
       const { touches } = event.nativeEvent;
       cancel();

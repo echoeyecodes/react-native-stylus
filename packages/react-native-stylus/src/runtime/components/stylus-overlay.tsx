@@ -1,47 +1,139 @@
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Animated, Keyboard, StyleSheet, Text, View } from "react-native";
 import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context";
 import { undoTarget, type Turn as TurnData } from "../turns";
-import type { Stylus } from "../use-stylus";
+import type { Stylus, Target } from "../use-stylus";
 import { themedStyles } from "../theme";
-import { Composer, ComposerField, ComposerInput, ComposerSubmit, ComposerTarget } from "./composer";
+import { BeforeScreen } from "./before-screen";
+import {
+  Composer,
+  ComposerField,
+  ComposerInput,
+  ComposerPath,
+  ComposerRow,
+  ComposerSubmit,
+  ComposerTarget,
+} from "./composer";
+import { ComposerDock } from "./composer-dock";
 import { Highlight } from "./highlight";
 import { IconButton } from "./icon-button";
 import { PickSurface } from "./pick-surface";
 import { PickingBar } from "./picking-bar";
 import { SheetBody, SheetFooter, SheetHeader, SheetTitle, StylusSheet, type Detent } from "./stylus-sheet";
 import { Turn, TurnFooter, TurnParts, TurnRequest } from "./turn";
+import { TurnBanner } from "./turn-banner";
 
-export function StylusOverlay({ stylus }: { stylus: Stylus }) {
+type Props = {
+  stylus: Stylus;
+  /** How far the app is slid up to keep the picked element above the keyboard. */
+  appShift: Animated.Value;
+};
+
+export function StylusOverlay({ stylus, appShift }: Props) {
   const styles = useStyles();
   const { state } = stylus;
-  const [detent, setDetent] = useState<Detent>("compact");
-  const picking = state.mode === "picking";
-  const target = state.target;
-  const turns = state.turns;
-  const latest = turns.at(-1);
+  const { mode, target, turns } = state;
+  const [detent, setDetent] = useState<Detent>("half");
+  const [draft, setDraft] = useState("");
+  const [comparing, setComparing] = useState(false);
+  const [highlightShift] = useState(() => Animated.multiply(appShift, -1));
+
+  const picking = mode === "picking";
+  const latest = turns.at(-1) ?? null;
   const running = latest?.status === "running";
   const busy = running || latest?.status === "checking";
   /** Undo is offered on the newest turn that changed files, and nowhere while one is underway. */
   const undoable = busy ? undefined : turns.findLast((turn) => turn.status === "done" || turn.status === "broken");
+  const undo = (turn: TurnData) => () => void stylus.undo(undoTarget(turns, turn));
 
-  // A new turn, including a repair Stylus starts by itself, should be visible as it runs.
+  // The sheet stays mounted while it slides away, and while picking an element for it.
+  const sheetWanted = mode === "sheet" || (picking && state.returnTo === "sheet");
+  const [sheetMounted, setSheetMounted] = useState(sheetWanted);
+  if (sheetWanted && !sheetMounted) setSheetMounted(true);
+
   useEffect(() => {
-    if (turns.length > 0) setDetent((current) => (current === "compact" ? "half" : current));
-  }, [turns.length]);
+    if (state.restore.version > 0) setDraft(state.restore.text);
+  }, [state.restore]);
+
+  const composer = (placement: "dock" | "sheet") => (
+    <Composer
+      draft={draft}
+      onDraftChange={setDraft}
+      running={running}
+      disabled={busy}
+      onSend={(text) => {
+        if (placement === "dock") Keyboard.dismiss();
+        void stylus.send(target, text);
+      }}
+      onStop={() => latest && stylus.stop(latest)}
+    >
+      {state.error && <Text style={styles.error}>{state.error}</Text>}
+      <ComposerPath
+        target={target}
+        onSelectLevel={(index) => selectLevel(stylus, target, index)}
+        onPick={stylus.start}
+      />
+      <ComposerRow>
+        <ComposerTarget target={target} />
+        <ComposerField>
+          <ComposerInput
+            placeholder="Describe a change"
+            autoFocus={placement === "dock"}
+            focusKey={placement === "sheet" ? target : undefined}
+          />
+          <ComposerSubmit />
+        </ComposerField>
+      </ComposerRow>
+    </Composer>
+  );
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       {/* Renders at once rather than waiting for native to report the insets. */}
       <SafeAreaProvider initialMetrics={initialWindowMetrics} pointerEvents="box-none">
+        {mode === "banner" && latest?.before && <BeforeScreen screenshot={latest.before} visible={comparing} />}
+
         {picking && <PickSurface onHover={stylus.hover} onPick={stylus.pick} />}
         {picking && <Highlight frame={state.hover?.frame ?? null} animate={false} />}
 
-        {(target || turns.length > 0) && (
-          <StylusSheet detent={detent} onDetentChange={setDetent} expandable={turns.length > 0} hidden={picking}>
+        {mode === "composer" && (
+          <>
+            <Animated.View
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, { transform: [{ translateY: highlightShift }] }]}
+            >
+              <Highlight frame={target?.frame ?? null} animate={false} />
+            </Animated.View>
+            <ComposerDock frame={target?.frame ?? null} appShift={appShift} onDismiss={stylus.dismissComposer}>
+              {composer("dock")}
+            </ComposerDock>
+          </>
+        )}
+
+        {mode === "banner" && (
+          <TurnBanner
+            turn={latest}
+            error={state.error}
+            comparing={comparing}
+            onCompare={setComparing}
+            onOpen={() => turns.length > 0 && stylus.show("sheet")}
+            onDismiss={stylus.close}
+            onStop={() => latest && stylus.stop(latest)}
+            onUndo={latest && latest === undoable ? undo(latest) : null}
+          />
+        )}
+
+        {sheetMounted && (
+          <StylusSheet
+            detent={detent}
+            onDetentChange={setDetent}
+            onDismiss={() => stylus.show("banner")}
+            hidden={mode !== "sheet"}
+            onHidden={() => !sheetWanted && setSheetMounted(false)}
+          >
             <SheetHeader>
               <SheetTitle title="Stylus" subtitle={status(turns)} busy={busy} />
-              <IconButton glyph="✕" label="Close Stylus" onPress={stylus.close} />
+              <IconButton icon="x" label="Close Stylus" size="small" onPress={stylus.close} />
             </SheetHeader>
 
             <SheetBody followKey={turns.length}>
@@ -50,7 +142,7 @@ export function StylusOverlay({ stylus }: { stylus: Stylus }) {
                   key={turn.key}
                   turn={turn}
                   repaired={turns.some((later) => later.repairs === turn.key)}
-                  onUndo={turn === undoable ? () => stylus.undo(undoTarget(turns, turn)) : null}
+                  onUndo={turn === undoable ? undo(turn) : null}
                   onFix={turn === latest && turn.status === "broken" && !busy ? stylus.fixCrash : null}
                 >
                   <TurnRequest />
@@ -60,26 +152,7 @@ export function StylusOverlay({ stylus }: { stylus: Stylus }) {
               ))}
             </SheetBody>
 
-            <SheetFooter>
-              {state.error && <Text style={styles.error}>{state.error}</Text>}
-              <Composer
-                restore={state.restore}
-                running={running}
-                disabled={busy}
-                onSend={(text) => void stylus.send(target, text)}
-                onStop={() => latest && stylus.stop(latest)}
-              >
-                <ComposerTarget
-                  target={target}
-                  onSelectLevel={(index) => target && stylus.selectLevel(target, index)}
-                  onChange={stylus.start}
-                />
-                <ComposerField>
-                  <ComposerInput placeholder="Describe a change" focusKey={target ?? undefined} />
-                  <ComposerSubmit />
-                </ComposerField>
-              </Composer>
-            </SheetFooter>
+            <SheetFooter>{composer("sheet")}</SheetFooter>
           </StylusSheet>
         )}
 
@@ -89,6 +162,10 @@ export function StylusOverlay({ stylus }: { stylus: Stylus }) {
       </SafeAreaProvider>
     </View>
   );
+}
+
+function selectLevel(stylus: Stylus, target: Target | null, index: number) {
+  if (target) void stylus.selectLevel(target, index);
 }
 
 function status(turns: TurnData[]) {
@@ -103,6 +180,6 @@ function status(turns: TurnData[]) {
 
 const useStyles = themedStyles((palette) =>
   StyleSheet.create({
-    error: { color: palette.danger, fontSize: 14, lineHeight: 20, paddingHorizontal: 8, paddingBottom: 8 },
+    error: { color: palette.danger, fontSize: 14, lineHeight: 20, paddingHorizontal: 8 },
   }),
 );

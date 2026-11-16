@@ -7,6 +7,7 @@ import { Activity, ActivityRow } from "./activity";
 import { Appear } from "./appear";
 import { CheckRow } from "./check-row";
 import { DeviceCheckRow } from "./device-check-row";
+import { IconButton } from "./icon-button";
 import { Reasoning } from "./reasoning";
 import { Reply } from "./reply";
 import { TextButton } from "./text-button";
@@ -125,7 +126,7 @@ function step(part: Exclude<Part, { kind: "text" }>) {
 export function TurnFooter() {
   const styles = useStyles();
   const { turn, repaired, onUndo, onFix } = useTurn();
-  const undo = onUndo && <TextButton label="↺ Undo" tone="link" onPress={onUndo} />;
+  const undo = onUndo && <IconButton icon="undo" label="Undo" tone="plain" size="small" onPress={onUndo} />;
 
   switch (turn.status) {
     case "running":
@@ -180,7 +181,7 @@ const useStyles = themedStyles((palette) =>
     repairMessage: { color: palette.secondary, fontSize: 14, lineHeight: 20 },
     parts: { gap: 12 },
     broken: { gap: 6 },
-    footer: { flexDirection: "row", gap: 20 },
+    footer: { flexDirection: "row", alignItems: "center", gap: 16, marginLeft: -3 },
     status: { color: palette.tertiary, fontSize: 13.5, lineHeight: 19 },
     error: { color: palette.danger, fontSize: 14, lineHeight: 20 },
   }),

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useReducer, useRef, useState, type RefObject } from "react";
 import { Keyboard, type HostInstance } from "react-native";
-import type { Rect, SourceLocation, TurnComponent, TurnEvent, TurnRequest } from "../shared/protocol";
+import type { Rect, Screenshot, SourceLocation, TurnComponent, TurnEvent, TurnRequest } from "../shared/protocol";
 import { AppHealth, type AppProblem } from "./app-health";
 import { captureScreen } from "./capture-screen";
 import { devServerOrigin } from "./dev-server";
+import { pauseFastRefresh, resumeFastRefresh } from "./fast-refresh";
 import { inspectAtPoint } from "./inspect-at-point";
 import type { NdjsonRequest } from "./post-ndjson";
 import { errorLocations, projectLocations } from "./source-locations";
@@ -25,8 +26,13 @@ export type Target = {
 
 export type Hover = { name: string; frame: Rect };
 
+/** Where Stylus rests between picks: the one-line composer, the status bar, or the full conversation. */
+export type Resting = "composer" | "banner" | "sheet";
+
 export type StylusState = {
-  mode: "idle" | "picking" | "chat";
+  mode: "idle" | "picking" | Resting;
+  /** Where picking returns to once it ends. Null when picking opened Stylus. */
+  returnTo: Resting | null;
   hover: Hover | null;
   notice: string | null;
   target: Target | null;
@@ -37,13 +43,15 @@ export type StylusState = {
 };
 
 type Action =
-  | { type: "opened"; mode: "picking" | "chat" }
+  | { type: "opened"; mode: "picking" | "banner" }
+  | { type: "shown"; mode: Resting }
   | { type: "hovered"; hover: Hover | null }
   | { type: "noticed"; notice: string }
   | { type: "picked"; target: Target }
   | { type: "pickCancelled" }
   | { type: "levelSelected"; target: Target }
   | { type: "turnStarted"; turn: Turn }
+  | { type: "captured"; key: string; moment: "before" | "after"; screenshot: Screenshot }
   | { type: "turnEvent"; key: string; event: TurnEvent; now: number }
   | { type: "turnVerified"; key: string; problem: { message: string; location: TurnComponent | null } | null }
   | { type: "turnStopped"; key: string; now: number }
@@ -53,6 +61,7 @@ type Action =
 
 const INITIAL: StylusState = {
   mode: "idle",
+  returnTo: null,
   hover: null,
   notice: null,
   target: null,
@@ -64,19 +73,38 @@ const INITIAL: StylusState = {
 function reducer(state: StylusState, action: Action): StylusState {
   switch (action.type) {
     case "opened":
-      return { ...state, mode: action.mode, hover: null, notice: null, error: null };
+      return {
+        ...state,
+        // A crash fix asked for from the conversation stays in the conversation.
+        mode: action.mode === "banner" && state.mode === "sheet" ? "sheet" : action.mode,
+        returnTo: action.mode === "picking" ? resting(state) : null,
+        hover: null,
+        notice: null,
+        error: null,
+      };
+    case "shown":
+      return { ...state, mode: action.mode };
     case "hovered":
       return { ...state, hover: action.hover, notice: null };
     case "noticed":
       return { ...state, hover: null, notice: action.notice };
-    case "picked":
-      return { ...state, mode: "chat", target: action.target, hover: null, notice: null };
+    case "picked": {
+      const mode = state.returnTo === "sheet" ? "sheet" : "composer";
+      return { ...state, mode, target: action.target, hover: null, notice: null };
+    }
     case "pickCancelled":
-      return { ...state, mode: "chat", hover: null, notice: null };
+      return { ...state, mode: state.returnTo ?? "composer", hover: null, notice: null };
     case "levelSelected":
       return { ...state, target: action.target };
     case "turnStarted":
-      return { ...state, error: null, turns: [...state.turns, action.turn] };
+      return {
+        ...state,
+        mode: state.mode === "composer" ? "banner" : state.mode,
+        error: null,
+        turns: [...state.turns, action.turn],
+      };
+    case "captured":
+      return updateTurn(state, action.key, (turn) => ({ ...turn, [action.moment]: action.screenshot }));
     case "turnEvent":
       return updateTurn(state, action.key, (turn) => applyTurnEvent(turn, action.event, action.now));
     case "turnVerified":
@@ -84,7 +112,9 @@ function reducer(state: StylusState, action: Action): StylusState {
     case "turnStopped": {
       const next = updateTurn(state, action.key, (turn) => ({ ...settleParts(turn, action.now), status: "stopped" }));
       const stopped = next.turns.find((turn) => turn.key === action.key);
-      return stopped?.origin === "developer" ? restore(next, stopped.request) : next;
+      if (stopped?.origin !== "developer") return next;
+      // Stopping from the status bar usually means the request needs rewording, so it goes back to the composer.
+      return restore({ ...next, mode: next.mode === "banner" ? "composer" : next.mode }, stopped.request);
     }
     case "turnUndone": {
       const index = state.turns.findIndex((turn) => turn.turnId === action.turnId);
@@ -95,13 +125,21 @@ function reducer(state: StylusState, action: Action): StylusState {
           ? { ...turn, status: "undone" as const }
           : turn,
       );
-      return undone.origin === "developer" ? restore({ ...state, turns }, undone.request) : { ...state, turns };
+      // Only the conversation shows the composer alongside the undo, so only there does the request come back.
+      const restoring = undone.origin === "developer" && state.mode === "sheet";
+      return restoring ? restore({ ...state, turns }, undone.request) : { ...state, turns };
     }
     case "failed":
       return { ...state, error: action.message };
     case "closed":
       return INITIAL;
   }
+}
+
+/** Where Stylus is resting now, or, mid-pick, where it will return to. */
+function resting(state: StylusState): Resting | null {
+  if (state.mode === "picking") return state.returnTo;
+  return state.mode === "idle" ? null : state.mode;
 }
 
 function updateTurn(state: StylusState, key: string, update: (turn: Turn) => Turn): StylusState {
@@ -116,7 +154,7 @@ export type Stylus = ReturnType<typeof useStylus>;
 
 type Point = { x: number; y: number };
 
-type TurnSeed = Pick<Turn, "origin" | "repairs" | "request" | "target">;
+type TurnSeed = Pick<Turn, "origin" | "repairs" | "request" | "target" | "frame">;
 
 const NOTHING_HERE = "Nothing here comes from your code.";
 /** Long enough for Fast Refresh to apply a turn's last edit. */
@@ -249,7 +287,17 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     const key = `${Date.now()}`;
     dispatch({
       type: "turnStarted",
-      turn: { ...seed, key, parts: [], status: "running", turnId: null, lastEditAt: null, error: null },
+      turn: {
+        ...seed,
+        key,
+        before: null,
+        after: null,
+        parts: [],
+        status: "running",
+        turnId: null,
+        lastEditAt: null,
+        error: null,
+      },
     });
 
     const crashedBefore = health.crash?.message ?? null;
@@ -262,6 +310,7 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
       const now = Date.now();
       if (event.type === "tool-result" && event.diff) lastEditAt = now;
       if (event.type === "done" || event.type === "error") settled = true;
+      if (event.type === "done") resumeFastRefresh();
       dispatch({ type: "turnEvent", key, event, now });
       if (event.type === "done" && (lastEditAt !== null || seed.origin === "repair")) {
         const since = lastEditAt ?? startedAt;
@@ -274,6 +323,8 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
 
     try {
       const [sessionId, request] = await Promise.all([session.current, buildRequest()]);
+      if (request.screenshot) dispatch({ type: "captured", key, moment: "before", screenshot: request.screenshot });
+      pauseFastRefresh();
       turn = api.runTurn(sessionId, request, onEvent);
       activeTurn.current = turn;
       await turn.done;
@@ -283,6 +334,7 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     } catch (error) {
       onEvent({ type: "error", message: error instanceof Error ? error.message : String(error) });
     } finally {
+      resumeFastRefresh();
       if (activeTurn.current === turn) activeTurn.current = null;
     }
   }
@@ -300,6 +352,7 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
         target: first
           ? { name: first.name, file: first.location.file, line: first.location.line }
           : { name: "App", file: "", line: 0 },
+        frame: null,
       },
       async () => ({
         text: "",
@@ -316,7 +369,15 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     const api = client.current;
     if (!api || !session.current) return;
     const problem = health.problemSince(since);
-    if (!problem) return dispatch({ type: "turnVerified", key, problem: null });
+    if (!problem) {
+      dispatch({ type: "turnVerified", key, problem: null });
+      const view = appRef.current;
+      if (view) {
+        const screenshot = await captureScreen(view).catch(() => null);
+        if (screenshot) dispatch({ type: "captured", key, moment: "after", screenshot });
+      }
+      return;
+    }
 
     const [location] = await errorLocations(api.origin, problem.stack).catch(() => []);
     dispatch({ type: "turnVerified", key, problem: { message: problem.message, location: location ?? null } });
@@ -338,6 +399,7 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
         target: picked
           ? { name: picked.name, file: picked.location.file, line: picked.location.line }
           : { name: "App", file: "", line: 0 },
+        frame: target?.frame ?? null,
       },
       async () => ({
         text,
@@ -355,7 +417,7 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     const crash = health.crash;
     if (!crash) return;
     Keyboard.dismiss();
-    dispatch({ type: "opened", mode: "chat" });
+    dispatch({ type: "opened", mode: "banner" });
     if (connect()) void repair(crash, null);
   }
 
@@ -395,13 +457,41 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     dispatch({ type: "closed" });
   }, []);
 
-  /** Leaves picking without choosing anything, closing Stylus if there is nothing to go back to. */
+  /** Leaves picking without choosing anything, closing Stylus if picking is what opened it. */
   const cancelPick = useCallback(() => {
-    if (state.target || state.turns.length > 0) dispatch({ type: "pickCancelled" });
+    if (state.returnTo) dispatch({ type: "pickCancelled" });
     else close();
-  }, [state.target, state.turns.length, close]);
+  }, [state.returnTo, close]);
 
+  const show = useCallback((mode: Resting) => {
+    Keyboard.dismiss();
+    dispatch({ type: "shown", mode });
+  }, []);
+
+  /** Puts the composer away, closing Stylus if nothing has been asked yet. */
+  const dismissComposer = useCallback(() => {
+    if (state.turns.length > 0) show("banner");
+    else close();
+  }, [state.turns.length, show, close]);
+
+  // The paused setting persists, so a turn cut short by the app closing would leave it off.
+  useEffect(() => resumeFastRefresh(), []);
   useEffect(() => close, [close]);
 
-  return { state, health, start, hover, pick, cancelPick, selectLevel, send, fixCrash, stop, undo, close };
+  return {
+    state,
+    health,
+    start,
+    hover,
+    pick,
+    cancelPick,
+    selectLevel,
+    show,
+    dismissComposer,
+    send,
+    fixCrash,
+    stop,
+    undo,
+    close,
+  };
 }

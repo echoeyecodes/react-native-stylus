@@ -1,5 +1,6 @@
 import { randomUUID, type UUID } from "node:crypto";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import type {
   HookInput,
   Options,
@@ -20,6 +21,8 @@ import { TurnTranscript } from "./turn-transcript.js";
 const TOOLS = ["Read", "Edit", "Write", "Glob", "Grep"];
 /** Claude gets this many chances to fix errors its edits introduced before it may finish anyway. */
 const MAX_FIX_ROUNDS = 2;
+/** How long closing waits for an interrupted turn to wind down before putting its edits back itself. */
+const STOP_TIMEOUT_MS = 5000;
 
 export type AgentSessionOptions = {
   projectRoot: string;
@@ -36,6 +39,8 @@ type Turn = {
   stopped: boolean;
   emit: (event: TurnEvent) => void;
   finish: () => void;
+  /** Resolves once the turn has finished, including putting back a stopped turn's edits. */
+  settled: Promise<void>;
 };
 
 /**
@@ -81,37 +86,32 @@ export class AgentSession {
     emit: (event: TurnEvent) => void,
     signal: AbortSignal,
   ): Promise<void> {
-    return new Promise((resolve) => {
-      const turn: Turn = {
-        id: randomUUID(),
-        transcript: new TurnTranscript(),
-        check: new TurnCheck(this.#checker),
-        checks: 0,
-        stopped: false,
-        emit,
-        finish: () => {
-          this.#turn = null;
-          resolve();
-        },
-      };
-      this.#turn = turn;
+    let resolve!: () => void;
+    const settled = new Promise<void>((done) => (resolve = done));
+    const turn: Turn = {
+      id: randomUUID(),
+      transcript: new TurnTranscript(),
+      check: new TurnCheck(this.#checker),
+      checks: 0,
+      stopped: false,
+      emit,
+      finish: () => {
+        this.#turn = null;
+        resolve();
+      },
+      settled,
+    };
+    this.#turn = turn;
 
-      signal.addEventListener(
-        "abort",
-        () => {
-          turn.stopped = true;
-          void this.#query?.interrupt();
-        },
-        { once: true },
+    signal.addEventListener("abort", () => this.#stop(turn), { once: true });
+
+    this.#open()
+      .then((query) => Promise.all(seen.map(({ file, mtimeMs }) => query.seedReadState(file, mtimeMs))))
+      .then(
+        () => this.#inbox.push(userMessage(turn.id, content)),
+        (error: unknown) => this.#fail(turn, error),
       );
-
-      this.#open()
-        .then((query) => Promise.all(seen.map(({ file, mtimeMs }) => query.seedReadState(file, mtimeMs))))
-        .then(
-          () => this.#inbox.push(userMessage(turn.id, content)),
-          (error: unknown) => this.#fail(turn, error),
-        );
-    });
+    return settled;
   }
 
   async undo(turnId: string) {
@@ -120,7 +120,17 @@ export class AgentSession {
     if (!result.canRewind) throw new Error(result.error ?? "This change can't be undone.");
   }
 
-  close() {
+  /**
+   * Ends the conversation. A turn still underway is stopped first, like any other stop, so its
+   * half-finished edits are put back rather than left in the project.
+   */
+  async close() {
+    const turn = this.#turn;
+    if (turn) {
+      this.#stop(turn);
+      await Promise.race([turn.settled, delay(STOP_TIMEOUT_MS)]);
+      if (this.#turn === turn && turn.transcript.edited) await this.#query?.rewindFiles(turn.id).catch(() => {});
+    }
     this.#inbox.end();
     if (this.#query) this.#query.close();
     else
@@ -128,6 +138,12 @@ export class AgentSession {
         (warm) => warm.close(),
         () => {},
       );
+  }
+
+  #stop(turn: Turn) {
+    if (turn.stopped) return;
+    turn.stopped = true;
+    void this.#query?.interrupt();
   }
 
   async #open(): Promise<Query> {
