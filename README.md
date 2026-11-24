@@ -23,3 +23,17 @@ npx expo start
 ```
 
 Changes to `src/metro` take effect after restarting Metro. Changes to `src/runtime` reload through Fast Refresh.
+
+## Releasing
+
+Releases are published to npm by the Publish workflow when a GitHub release is created.
+
+```sh
+npm version patch --workspace react-native-stylus   # or minor, major
+VERSION=v$(node -p 'require("./packages/react-native-stylus/package.json").version')
+git commit -am "Release $VERSION"
+git push
+gh release create "$VERSION" --target main --generate-notes
+```
+
+The release tag must match the version in `packages/react-native-stylus/package.json`.

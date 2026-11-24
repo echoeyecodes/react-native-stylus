@@ -12,6 +12,15 @@
     "developer-tools"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/echoeyecodes/react-native-stylus.git",
+    "directory": "packages/react-native-stylus"
+  },
+  "homepage": "https://github.com/echoeyecodes/react-native-stylus#readme",
+  "bugs": {
+    "url": "https://github.com/echoeyecodes/react-native-stylus/issues"
+  },
   "files": [
     "dist",
     "THIRD_PARTY_NOTICES.md"

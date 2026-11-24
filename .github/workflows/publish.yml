@@ -1,0 +1,29 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  # npm trusted publishing exchanges this for a short-lived publish token.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/react-native-stylus
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - name: Check the tag matches the package version
+        run: test "${{ github.event.release.tag_name }}" = "v$(node -p 'require("./package.json").version')"
+      - run: npm ci
+        working-directory: .
+      - run: npm publish
