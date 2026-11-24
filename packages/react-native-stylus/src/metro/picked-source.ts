@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import type { TurnRequest } from "../shared/protocol.js";
+import type { TurnComponent } from "../shared/protocol.js";
 
 /** Larger files are left for the agent to read in parts. */
 const MAX_LINES = 800;
@@ -13,12 +13,10 @@ export type PickedSource = {
 };
 
 /**
- * Reads the file holding the picked element's JSX, which nearly every request edits. Paths come
- * from the network, so only files inside `roots` are read.
+ * Reads the file holding the component's JSX, which nearly every request edits. Paths come from
+ * the network, so only files inside `roots` are read.
  */
-export async function readPickedSource(request: TurnRequest, roots: string[]): Promise<PickedSource | null> {
-  const component = request.components[request.selected];
-  if (!component) return null;
+export async function readPickedSource(component: TurnComponent, roots: string[]): Promise<PickedSource | null> {
   const file = path.resolve(component.location.file);
   if (!roots.some((root) => isInside(file, root))) return null;
   const [contents, stats] = await Promise.all([readFile(file, "utf8"), stat(file)]);

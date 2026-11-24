@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { DiffHunk } from "../../shared/protocol";
-import { countChanges, describeTool } from "../turn-summary";
+import { countChanges, describeTool } from "../tool-summary";
 import type { ToolPart } from "../turns";
 import { themedStyles } from "../theme";
 import { ActivityDetail, ActivityRow } from "./activity";

@@ -1,4 +1,14 @@
-import type { CheckStatus, DiffHunk, Rect, Screenshot, ToolName, TurnComponent, TurnEvent } from "../shared/protocol";
+import type {
+  CheckStatus,
+  DiffHunk,
+  ToolName,
+  TurnComponent,
+  TurnEvent,
+  TurnLogEntry,
+  TurnOrigin,
+  TurnSnapshot,
+  VerifyRequest,
+} from "../shared/protocol";
 
 export type ReasoningPart = {
   kind: "reasoning";
@@ -41,36 +51,64 @@ export type DevicePart = {
 
 export type Part = ReasoningPart | TextPart | ToolPart | CheckPart | DevicePart;
 
-export type TurnStatus = "running" | "checking" | "done" | "broken" | "stopped" | "failed" | "undone";
+export type TurnStatus = "queued" | "running" | "checking" | "done" | "broken" | "stopped" | "failed" | "undone";
 
 export type Turn = {
-  key: string;
-  /** A repair is a turn Stylus sent to fix a crash, rather than one the developer wrote. */
-  origin: "developer" | "repair";
-  /** For a repair of a broken turn, that turn's key. */
+  id: string;
+  origin: TurnOrigin;
+  /** For a repair of a turn that broke the app, that turn's id. */
   repairs: string | null;
   request: string;
-  /** The picked component, as it was when the request was sent. */
-  target: { name: string; file: string; line: number };
-  /** Where the picked element was on screen, in the same coordinates as the screenshots. */
-  frame: Rect | null;
-  /** The app as it was when the request was sent. */
-  before: Screenshot | null;
-  /** The app once the turn's edits ran without crashing. */
-  after: Screenshot | null;
+  /** The component the request was about, as it was when the request was sent. */
+  target: TurnComponent;
   parts: Part[];
   status: TurnStatus;
-  /** Set once the turn finishes, and used to undo it. */
-  turnId: string | null;
-  /** When the turn's latest edit was written, so later errors can be traced to it. */
-  lastEditAt: number | null;
+  /** Whether the turn changed any file, known once it finishes. */
+  edited: boolean;
   error: string | null;
 };
 
-export function applyTurnEvent(turn: Turn, event: TurnEvent, now: number): Turn {
+/** Rebuilds a turn from Metro's record of it. */
+export function turnFromSnapshot(snapshot: TurnSnapshot): Turn {
+  const queued: Turn = {
+    id: snapshot.id,
+    origin: snapshot.origin,
+    repairs: snapshot.repairs,
+    request: snapshot.text,
+    target: snapshot.target,
+    parts: [],
+    status: "queued",
+    edited: false,
+    error: null,
+  };
+  return snapshot.log.reduce(applyLogEntry, queued);
+}
+
+export function applyLogEntry(turn: Turn, entry: TurnLogEntry): Turn {
+  switch (entry.type) {
+    case "started":
+      return { ...turn, status: "running" };
+    case "transcript":
+      return applyTurnEvent(turn, entry.event, entry.at);
+    case "verified":
+      return verifyTurn(turn, entry.problem);
+    case "unverified":
+      return {
+        ...turn,
+        status: "done",
+        parts: turn.parts.filter((part) => part.kind !== "device"),
+      };
+    case "stopped":
+      return { ...settleParts(turn, entry.at), status: "stopped" };
+    case "undone":
+      return { ...turn, status: "undone" };
+  }
+}
+
+function applyTurnEvent(turn: Turn, event: TurnEvent, at: number): Turn {
   switch (event.type) {
     case "reasoning":
-      return withPart(turn, { kind: "reasoning", id: event.id, text: "", startedAt: now, endedAt: null });
+      return withPart(turn, { kind: "reasoning", id: event.id, text: "", startedAt: at, endedAt: null });
     case "text":
       return withPart(turn, { kind: "text", id: event.id, text: "" });
     case "tool":
@@ -87,15 +125,13 @@ export function applyTurnEvent(turn: Turn, event: TurnEvent, now: number): Turn 
         part.kind === "reasoning" || part.kind === "text" ? { ...part, text: part.text + event.text } : part,
       );
     case "end":
-      return updatePart(turn, event.id, (part) => (part.kind === "reasoning" ? { ...part, endedAt: now } : part));
+      return updatePart(turn, event.id, (part) => (part.kind === "reasoning" ? { ...part, endedAt: at } : part));
     case "tool-input":
       return updatePart(turn, event.id, (part) => (part.kind === "tool" ? { ...part, detail: event.detail } : part));
-    case "tool-result": {
-      const next = updatePart(turn, event.id, (part) =>
+    case "tool-result":
+      return updatePart(turn, event.id, (part) =>
         part.kind === "tool" ? { ...part, status: event.ok ? "done" : "failed", diff: event.diff } : part,
       );
-      return event.diff ? { ...next, lastEditAt: now } : next;
-    }
     case "check":
       return withPart(turn, {
         kind: "check",
@@ -105,12 +141,12 @@ export function applyTurnEvent(turn: Turn, event: TurnEvent, now: number): Turn 
         problems: event.problems,
       });
     case "done": {
-      const settled = { ...settleParts(turn, now), turnId: event.turnId };
+      const settled = { ...settleParts(turn, at), edited: event.edited };
       // A repair is checked even when it changed nothing, since its point is that the crash is gone.
-      if (turn.lastEditAt === null && turn.origin === "developer") return { ...settled, status: "done" };
+      if (!needsDeviceCheck(settled)) return { ...settled, status: "done" };
       const device: DevicePart = {
         kind: "device",
-        id: `${turn.key}:device`,
+        id: `${turn.id}:device`,
         status: "running",
         message: null,
         location: null,
@@ -118,13 +154,17 @@ export function applyTurnEvent(turn: Turn, event: TurnEvent, now: number): Turn 
       return withPart({ ...settled, status: "checking" }, device);
     }
     case "error":
-      return { ...settleParts(turn, now), status: "failed", error: event.message };
+      return { ...settleParts(turn, at), status: "failed", error: event.message };
   }
 }
 
-/** Records how the app fared after the turn's edits: `problem` is null when it ran fine. */
-export function verifyTurn(turn: Turn, problem: { message: string; location: TurnComponent | null } | null): Turn {
-  const verified = updatePart(turn, `${turn.key}:device`, (part) => {
+/** Whether the app should check that it still runs after this turn, once the turn is done. */
+export function needsDeviceCheck(turn: Turn) {
+  return turn.edited || turn.origin === "repair";
+}
+
+function verifyTurn(turn: Turn, problem: VerifyRequest["problem"]): Turn {
+  const verified = updatePart(turn, `${turn.id}:device`, (part) => {
     if (part.kind !== "device") return part;
     return problem
       ? { ...part, status: "failed", message: problem.message, location: problem.location }
@@ -134,11 +174,11 @@ export function verifyTurn(turn: Turn, problem: { message: string; location: Tur
 }
 
 /** Closes parts left open when a turn ends early. */
-export function settleParts(turn: Turn, now: number): Turn {
+function settleParts(turn: Turn, at: number): Turn {
   return {
     ...turn,
     parts: turn.parts.map((part) => {
-      if (part.kind === "reasoning" && part.endedAt === null) return { ...part, endedAt: now };
+      if (part.kind === "reasoning" && part.endedAt === null) return { ...part, endedAt: at };
       if (part.kind === "tool" && part.status === "running") return { ...part, status: "failed" };
       return part;
     }),
@@ -147,7 +187,7 @@ export function settleParts(turn: Turn, now: number): Turn {
 
 /** Undoing a repair also undoes the change it was repairing, since that change is what broke the app. */
 export function undoTarget(turns: Turn[], turn: Turn): Turn {
-  return turns.find((candidate) => candidate.key === turn.repairs) ?? turn;
+  return turns.find((candidate) => candidate.id === turn.repairs) ?? turn;
 }
 
 function withPart(turn: Turn, part: Part): Turn {

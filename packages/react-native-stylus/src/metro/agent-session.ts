@@ -1,4 +1,4 @@
-import { randomUUID, type UUID } from "node:crypto";
+import type { UUID } from "node:crypto";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import type {
@@ -44,11 +44,11 @@ type Turn = {
 };
 
 /**
- * One Claude Code conversation, kept open from the moment the developer starts picking until
- * they are done, so follow-ups keep their context and every turn can be undone.
+ * One Claude Code conversation shared by every thread, kept open from the moment the developer
+ * starts picking until the last thread is removed, so follow-ups keep their context and every
+ * turn can be undone.
  */
 export class AgentSession {
-  readonly id = randomUUID();
   readonly #warm: Promise<WarmQuery>;
   readonly #inbox = new MessageQueue<SDKUserMessage>();
   readonly #options: AgentSessionOptions;
@@ -71,25 +71,22 @@ export class AgentSession {
     this.#warm.catch(() => {});
   }
 
-  get isRunning() {
-    return this.#turn !== null;
-  }
-
   /**
-   * Sends one request and emits its progress. Resolves once the turn has finished. `seen` lists
-   * files whose current contents are in `content`, so the agent can edit them without reading
-   * them first.
+   * Sends one request and emits its progress. Resolves once the turn has finished, with whether it
+   * edited any file. `id` names the request's checkpoint for `undo`. `seen` lists files whose
+   * current contents are in `content`, so the agent can edit them without reading them first.
    */
   run(
+    id: UUID,
     content: TurnContent,
     seen: { file: string; mtimeMs: number }[],
     emit: (event: TurnEvent) => void,
     signal: AbortSignal,
-  ): Promise<void> {
+  ): Promise<boolean> {
     let resolve!: () => void;
     const settled = new Promise<void>((done) => (resolve = done));
     const turn: Turn = {
-      id: randomUUID(),
+      id,
       transcript: new TurnTranscript(),
       check: new TurnCheck(this.#checker),
       checks: 0,
@@ -108,10 +105,10 @@ export class AgentSession {
     this.#open()
       .then((query) => Promise.all(seen.map(({ file, mtimeMs }) => query.seedReadState(file, mtimeMs))))
       .then(
-        () => this.#inbox.push(userMessage(turn.id, content)),
+        () => (turn.stopped ? turn.finish() : this.#inbox.push(userMessage(turn.id, content))),
         (error: unknown) => this.#fail(turn, error),
       );
-    return settled;
+    return settled.then(() => turn.transcript.edited);
   }
 
   async undo(turnId: string) {
@@ -177,7 +174,7 @@ export class AgentSession {
       // Stopping means "never mind", so a half-finished edit is put back.
       if (turn.transcript.edited) await this.#query?.rewindFiles(turn.id);
     } else if (message.subtype === "success") {
-      turn.emit({ type: "done", turnId: turn.id });
+      turn.emit({ type: "done", edited: turn.transcript.edited });
     } else {
       turn.emit({ type: "error", message: message.errors[0] ?? "Claude Code couldn't finish this change." });
     }

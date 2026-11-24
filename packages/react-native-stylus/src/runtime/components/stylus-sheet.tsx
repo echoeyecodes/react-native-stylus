@@ -206,11 +206,17 @@ export function SheetTitle({ title, subtitle, busy }: SheetTitleProps) {
   const styles = useStyles();
   return (
     <View style={styles.titleBlock}>
-      <Text style={styles.title}>{title}</Text>
+      <Text numberOfLines={1} style={styles.title}>
+        {title}
+      </Text>
       {busy ? (
-        <PulsingText style={styles.subtitle}>{subtitle}</PulsingText>
+        <PulsingText numberOfLines={1} style={styles.subtitle}>
+          {subtitle}
+        </PulsingText>
       ) : (
-        <Text style={styles.subtitle}>{subtitle}</Text>
+        <Text numberOfLines={1} style={styles.subtitle}>
+          {subtitle}
+        </Text>
       )}
     </View>
   );

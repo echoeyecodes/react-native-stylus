@@ -11,9 +11,10 @@ export function StylusRoot({ children }: { children: ReactNode }) {
   const rootRef = useRef<HostInstance>(null);
   const appRef = useRef<HostInstance>(null);
   const stylus = useStylus(rootRef, appRef);
-  const { mode, turns } = stylus.state;
-  const latest = turns.at(-1);
-  const busy = latest?.status === "running" || latest?.status === "checking";
+  const { mode, threads } = stylus.state;
+  const fixing = threads.list.some((thread) =>
+    thread.turns.some((turn) => turn.origin === "repair" && ["queued", "running", "checking"].includes(turn.status)),
+  );
   const hold = useTwoFingerHold(stylus.start, mode !== "picking");
   const { health } = stylus;
   const appShift = useRef(new Animated.Value(0)).current;
@@ -41,13 +42,13 @@ export function StylusRoot({ children }: { children: ReactNode }) {
         <View ref={appRef} style={styles.fill} collapsable={false}>
           <AppErrorBoundary
             health={health}
-            fallback={(error) => <CrashScreen error={error} onFix={busy ? null : stylus.fixCrash} />}
+            fallback={(error) => <CrashScreen error={error} onFix={fixing ? null : () => void stylus.fixCrash()} />}
           >
             {children}
           </AppErrorBoundary>
         </View>
       </Animated.View>
-      {mode !== "idle" && <StylusOverlay stylus={stylus} appShift={appShift} />}
+      {(mode !== "idle" || threads.list.length > 0) && <StylusOverlay stylus={stylus} appShift={appShift} />}
     </View>
   );
 }

@@ -1,13 +1,14 @@
-export type NdjsonRequest = {
+export type NdjsonStream = {
+  /** Resolves when the response ends or the stream is closed, and rejects if the connection fails. */
   done: Promise<void>;
-  abort: () => void;
+  close: () => void;
 };
 
 /**
- * POSTs JSON and calls `onMessage` for each line of the newline-delimited JSON response as it
- * streams in. Uses XMLHttpRequest because React Native's fetch doesn't expose a streaming body.
+ * GETs a newline-delimited JSON response and calls `onMessage` for each line as it streams in.
+ * Uses XMLHttpRequest because React Native's fetch doesn't expose a streaming body.
  */
-export function postNdjson<T>(url: string, body: unknown, onMessage: (message: T) => void): NdjsonRequest {
+export function streamNdjson<T>(url: string, onMessage: (message: T) => void): NdjsonStream {
   const xhr = new XMLHttpRequest();
   let read = 0;
   let buffer = "";
@@ -24,7 +25,7 @@ export function postNdjson<T>(url: string, body: unknown, onMessage: (message: T
     // React Native only streams progress events when a handler is set before `send`.
     xhr.onprogress = flush;
     xhr.onload = () => {
-      if (xhr.status !== 200) return reject(new Error(errorMessage(xhr.responseText, xhr.status)));
+      if (xhr.status !== 200) return reject(new HttpError(xhr.status, errorMessage(xhr.responseText, xhr.status)));
       flush();
       resolve();
     };
@@ -32,14 +33,22 @@ export function postNdjson<T>(url: string, body: unknown, onMessage: (message: T
     xhr.onabort = () => resolve();
   });
 
-  xhr.open("POST", url);
-  xhr.setRequestHeader("Content-Type", "application/json");
-  xhr.send(JSON.stringify(body));
+  xhr.open("GET", url);
+  xhr.send();
 
-  return { done, abort: () => xhr.abort() };
+  return { done, close: () => xhr.abort() };
 }
 
-function errorMessage(responseText: string, status: number) {
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export function errorMessage(responseText: string, status: number) {
   try {
     return (JSON.parse(responseText) as { message: string }).message;
   } catch {

@@ -21,6 +21,8 @@ type TurnContextValue = {
   onUndo: (() => void) | null;
   /** Set when the developer can ask for a repair of the crash this turn found. */
   onFix: (() => void) | null;
+  /** Set when the app's look before this turn can be shown. Called with true while held. */
+  onCompare: ((holding: boolean) => void) | null;
 };
 
 const TurnContext = createContext<TurnContextValue | null>(null);
@@ -70,9 +72,9 @@ export function TurnRequest() {
             {turn.request}
           </Text>
         </View>
-        {turn.target.file !== "" && (
+        {turn.target.location.file !== "" && (
           <Text numberOfLines={1} style={styles.target}>
-            {turn.target.name} in {fileName(turn.target.file)}:{turn.target.line}
+            {turn.target.name} in {fileName(turn.target.location.file)}:{turn.target.location.line}
           </Text>
         )}
       </View>
@@ -125,15 +127,32 @@ function step(part: Exclude<Part, { kind: "text" }>) {
 
 export function TurnFooter() {
   const styles = useStyles();
-  const { turn, repaired, onUndo, onFix } = useTurn();
+  const { turn, repaired, onUndo, onFix, onCompare } = useTurn();
   const undo = onUndo && <IconButton icon="undo" label="Undo" tone="plain" size="small" onPress={onUndo} />;
+  const compare = onCompare && (
+    <IconButton
+      icon="compare"
+      label="Hold to see the app before this change"
+      tone="plain"
+      size="small"
+      onPressIn={() => onCompare(true)}
+      onPressOut={() => onCompare(false)}
+    />
+  );
 
   switch (turn.status) {
+    case "queued":
+      return <Text style={styles.status}>Waiting for the change before it to finish.</Text>;
     case "running":
     case "checking":
       return null;
     case "done":
-      return undo ? <View style={styles.footer}>{undo}</View> : null;
+      return undo || compare ? (
+        <View style={styles.footer}>
+          {compare}
+          {undo}
+        </View>
+      ) : null;
     case "broken":
       if (repaired) return null;
       return (
