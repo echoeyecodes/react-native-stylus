@@ -2,6 +2,8 @@
 
 Stylus lets you change a React Native app while you're using it. Hold two fingers on the screen, tap the thing you want to change and say what should be different. A coding agent on your computer edits the source, and the app on your phone updates through Fast Refresh.
 
+https://github.com/user-attachments/assets/e37ed02a-ed6a-4ac4-b856-513180e7a83d
+
 It uses Claude Code by default. Codex, OpenCode and other agents that support the [Agent Client Protocol](https://agentclientprotocol.com) work too.
 
 ## Getting started
