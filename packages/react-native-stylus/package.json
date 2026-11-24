@@ -2,6 +2,15 @@
   "name": "react-native-stylus",
   "version": "0.1.0",
   "description": "Point at any element in your running React Native app, say what to change, and watch it update.",
+  "keywords": [
+    "react-native",
+    "expo",
+    "metro",
+    "claude-code",
+    "codex",
+    "ai",
+    "developer-tools"
+  ],
   "license": "MIT",
   "files": [
     "dist",
@@ -21,7 +30,8 @@
     "build": "tsc -p tsconfig.runtime.json && tsc -p tsconfig.metro.json",
     "dev": "tsc -p tsconfig.runtime.json --watch --preserveWatchOutput & tsc -p tsconfig.metro.json --watch --preserveWatchOutput",
     "typecheck": "tsc -p tsconfig.runtime.json --noEmit && tsc -p tsconfig.metro.json --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "peerDependencies": {
     "react": "*",
