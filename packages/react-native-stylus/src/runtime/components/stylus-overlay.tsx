@@ -27,7 +27,7 @@ import { Turn, TurnFooter, TurnParts, TurnRequest } from "./turn";
 
 type Props = {
   stylus: Stylus;
-  /** How far the app is slid up to keep the picked element above the keyboard. */
+  /** How far the app is slid up to clear the keyboard. */
   appShift: Animated.Value;
 };
 
@@ -188,11 +188,10 @@ type ThreadSheetProps = {
   onHidden: () => void;
   draft: string;
   onDraftChange: (draft: string) => void;
-  /** Called with a turn's id while its Compare is held, and with null on release. */
+  /** A turn's id while its Compare is held, null on release. */
   onCompare: (turnId: string | null) => void;
 };
 
-/** One thread's conversation, which collapses back into its bubble when closed. */
 function ThreadSheet({
   stylus,
   thread,
@@ -263,7 +262,7 @@ function ThreadSheet({
   );
 }
 
-/** A thread reads like a comment thread, headed by its first request. */
+/** Headed by the first developer request, like a comment thread. */
 function threadTitle(thread: Thread) {
   const first = thread.turns.find((turn) => turn.origin === "developer");
   return first?.request ?? "Fixing the crash";

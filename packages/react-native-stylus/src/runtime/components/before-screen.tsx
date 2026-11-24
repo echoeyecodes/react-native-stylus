@@ -6,10 +6,7 @@ type Props = {
   visible: boolean;
 };
 
-/**
- * The app as it looked before a change, drawn over the live app. It stays mounted while hidden so
- * the image is already decoded when the developer holds Compare.
- */
+/** Stays mounted while hidden so the image is already decoded when Compare is held. */
 export function BeforeScreen({ screenshot, visible }: Props) {
   return (
     <Image

@@ -2,7 +2,6 @@ import { StyleSheet, Text } from "react-native";
 import type { LineCounts as Counts } from "../tool-summary";
 import { themedStyles } from "../theme";
 
-/** Lines added and removed, as in "+3 −1". */
 export function LineCounts({ counts }: { counts: Counts }) {
   const styles = useStyles();
   return (

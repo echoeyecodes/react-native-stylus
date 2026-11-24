@@ -15,37 +15,36 @@ export type TurnComponent = {
 
 export type Screenshot = {
   base64: string;
-  /** Size of the captured area in points, the unit `frame` uses. */
+  /** In points, the unit `frame` uses. */
   width: number;
   height: number;
 };
 
 /** The element a thread is about. */
 export type Anchor = {
-  /** The components around the element, innermost first. */
+  /** Innermost first. */
   components: TurnComponent[];
-  /** Index into `components` of the one the developer picked. */
+  /** Index of the picked component in `components`. */
   selected: number;
-  /** Where the element was on screen when it was picked. */
+  /** On-screen bounds when picked. */
   frame: Rect;
 };
 
 export type TurnOrigin = "developer" | "repair";
 
-/** A request the app adds to a thread. */
 export type NewTurn = {
   text: string;
-  /** A repair is a turn Stylus sends to fix a crash, rather than one the developer wrote. */
+  /** `repair` turns are sent by Stylus to fix a crash. */
   origin: TurnOrigin;
-  /** For a repair of a turn that broke the app, that turn's id. */
+  /** Id of the turn this one repairs. */
   repairs: string | null;
   screenshot: Screenshot | null;
-  /** Set on repairs: the crash and the project code it went through, innermost first. */
+  /** Set on repairs; `components` is innermost first. */
   crash: { message: string; components: TurnComponent[] } | null;
 };
 
 export type CreateThreadRequest = {
-  /** Null for a thread about the whole app, such as fixing a crash from the crash screen. */
+  /** Null for a thread about the whole app. */
   anchor: Anchor | null;
   turn: NewTurn;
 };
@@ -54,16 +53,17 @@ export type CreateThreadResponse = { threadId: string; turnId: string };
 
 export type AddTurnResponse = { turnId: string };
 
-/** What the app found once a turn's edits reached it. `problem` is null when it ran fine. */
+/** `problem` is null when the edited app ran fine. */
 export type VerifyRequest = {
   problem: { message: string; location: TurnComponent | null } | null;
 };
 
 export type ErrorResponse = { message: string };
 
-export type ToolName = "Read" | "Edit" | "Write" | "Glob" | "Grep";
+/** `Run` is a shell command. */
+export type ToolName = "Read" | "Edit" | "Write" | "Glob" | "Grep" | "Run";
 
-/** A type and syntax check of the files a turn edited, run before Claude may finish. */
+/** Result of the type check on a turn's edited files. */
 export type CheckStatus = "passed" | "failed";
 
 export type DiffHunk = {
@@ -73,10 +73,7 @@ export type DiffHunk = {
   lines: string[];
 };
 
-/**
- * The transcript of one turn as it streams. A turn is a sequence of parts: reasoning, text and
- * tool calls, each opened once and then filled in by later events with the same `id`.
- */
+/** Each part is opened once, then filled in by later events with the same `id`. */
 export type TurnEvent =
   | { type: "reasoning"; id: string }
   | { type: "text"; id: string }
@@ -86,16 +83,16 @@ export type TurnEvent =
   | { type: "tool-input"; id: string; detail: string | null }
   | { type: "tool-result"; id: string; ok: boolean; diff: DiffHunk[] | null }
   | { type: "check"; id: string; status: CheckStatus; files: string[]; problems: string[] }
-  /** `edited` says whether the turn changed any file, which decides whether the app checks it. */
+  /** `edited` is true when the turn changed any file. */
   | { type: "done"; edited: boolean }
   | { type: "error"; message: string };
 
-/** One step in a turn's life, in order. Replaying a turn's log rebuilds it. */
+/** Replaying a turn's log in order rebuilds the turn. */
 export type TurnLogEntry =
   | { type: "started"; at: number }
   | { type: "transcript"; event: TurnEvent; at: number }
   | { type: "verified"; problem: VerifyRequest["problem"] }
-  /** No app reported back in time, so the edits weren't checked on a device. */
+  /** No app reported back before the timeout. */
   | { type: "unverified" }
   | { type: "stopped"; at: number }
   | { type: "undone" };
@@ -105,7 +102,7 @@ export type TurnSnapshot = {
   text: string;
   origin: TurnOrigin;
   repairs: string | null;
-  /** The component the request was about, as it was when the request was sent. */
+  /** As of when the request was sent. */
   target: TurnComponent;
   log: TurnLogEntry[];
 };
@@ -116,12 +113,9 @@ export type ThreadSnapshot = {
   turns: TurnSnapshot[];
 };
 
-/**
- * Everything Metro streams to the app. A connection starts with a snapshot of every thread, so an
- * app that reloads picks up where it left off.
- */
+/** Each connection starts with a snapshot of every thread. */
 export type StylusEvent =
-  /** `undoable` is the only turn Undo can be offered on right now, across every thread. */
+  /** `undoable` is the one turn, across all threads, Undo can apply to. */
   | { type: "snapshot"; threads: ThreadSnapshot[]; undoable: string | null }
   | { type: "thread-added"; thread: ThreadSnapshot }
   | { type: "thread-removed"; threadId: string }

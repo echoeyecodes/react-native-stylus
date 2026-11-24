@@ -24,13 +24,13 @@ export type ToolPart = {
   kind: "tool";
   id: string;
   name: ToolName;
-  /** The file name, or the pattern for searches. Arrives after the call starts. */
+  /** File name or search pattern; arrives after the call starts. */
   detail: string | null;
   status: "running" | "done" | "failed";
   diff: DiffHunk[] | null;
 };
 
-/** Metro's type check of the edited files, before Claude was allowed to finish. */
+/** Metro's type check, run before the turn may finish. */
 export type CheckPart = {
   kind: "check";
   id: string;
@@ -39,7 +39,7 @@ export type CheckPart = {
   problems: string[];
 };
 
-/** Whether the app still ran after the turn's edits reached the phone. */
+/** Whether the app still ran once the edits reached the device. */
 export type DevicePart = {
   kind: "device";
   id: string;
@@ -56,19 +56,18 @@ export type TurnStatus = "queued" | "running" | "checking" | "done" | "broken" |
 export type Turn = {
   id: string;
   origin: TurnOrigin;
-  /** For a repair of a turn that broke the app, that turn's id. */
+  /** Id of the turn this one repairs. */
   repairs: string | null;
   request: string;
-  /** The component the request was about, as it was when the request was sent. */
+  /** As of when the request was sent. */
   target: TurnComponent;
   parts: Part[];
   status: TurnStatus;
-  /** Whether the turn changed any file, known once it finishes. */
+  /** Known once the turn finishes. */
   edited: boolean;
   error: string | null;
 };
 
-/** Rebuilds a turn from Metro's record of it. */
 export function turnFromSnapshot(snapshot: TurnSnapshot): Turn {
   const queued: Turn = {
     id: snapshot.id,
@@ -158,7 +157,6 @@ function applyTurnEvent(turn: Turn, event: TurnEvent, at: number): Turn {
   }
 }
 
-/** Whether the app should check that it still runs after this turn, once the turn is done. */
 export function needsDeviceCheck(turn: Turn) {
   return turn.edited || turn.origin === "repair";
 }
@@ -185,7 +183,7 @@ function settleParts(turn: Turn, at: number): Turn {
   };
 }
 
-/** Undoing a repair also undoes the change it was repairing, since that change is what broke the app. */
+/** Undoing a repair also undoes the change that broke the app. */
 export function undoTarget(turns: Turn[], turn: Turn): Turn {
   return turns.find((candidate) => candidate.id === turn.repairs) ?? turn;
 }

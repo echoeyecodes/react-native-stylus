@@ -25,7 +25,7 @@ export function StylusRoot({ children }: { children: ReactNode }) {
     return () => unregisterOpener(stylus.start);
   }, [stylus.start]);
 
-  // Errors outside rendering never reach the boundary, so they are noted here before React Native handles them.
+  // Errors outside rendering never reach the boundary, so they are noted here first.
   useEffect(() => {
     const previous = ErrorUtils.getGlobalHandler();
     ErrorUtils.setGlobalHandler((error, isFatal) => {
@@ -37,7 +37,7 @@ export function StylusRoot({ children }: { children: ReactNode }) {
 
   return (
     <View ref={rootRef} style={styles.fill} {...hold}>
-      {/* The shift sits outside the captured view, so screenshots show the app where it normally is. */}
+      {/* Outside the captured view, so screenshots show the app unshifted. */}
       <Animated.View style={[styles.fill, { transform: appTransform }]}>
         <View ref={appRef} style={styles.fill} collapsable={false}>
           <AppErrorBoundary

@@ -41,30 +41,24 @@ declare const globalThis: {
 
 /** React's tag for the fiber at the top of a tree. */
 const HOST_ROOT = 3;
-/** A measure that hasn't answered by now never will, because the element has no view any more. */
+/** An unmounted element never answers a measure. */
 const MEASURE_TIMEOUT_MS = 300;
 
 export type InspectedComponent = {
   name: string;
-  /** Captured by React where this component's element was created. */
+  /** Captured by React where the element was created. */
   debugStack: string | null;
-  /** Bounds in window coordinates, or null once the component is no longer on screen. */
+  /** Window coordinates; null once off screen. */
   measure: () => Promise<Rect | null>;
 };
 
-/**
- * Finds the components that rendered the element under a point, innermost first. Uses the
- * same renderer hook as React Native's element inspector.
- */
+/** Innermost first. Uses the same renderer hook as React Native's element inspector. */
 export async function inspectAtPoint(view: HostInstance, x: number, y: number): Promise<InspectedComponent[]> {
   const data = await inspectorDataAt(view, x, y);
   return data ? componentsFrom(data) : [];
 }
 
-/**
- * Every mounted component named `name` in the tree `view` belongs to, found by walking React's
- * current tree from its root.
- */
+/** Walks React's current tree from the root of `view`. */
 export async function componentsNamed(view: HostInstance, name: string): Promise<InspectedComponent[]> {
   const config = rendererConfigs().find((candidate) => candidate.getInspectorDataForInstance);
   const inspect = config?.getInspectorDataForInstance;

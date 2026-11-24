@@ -1,24 +1,22 @@
 import path from "node:path";
-import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { Anchor, NewTurn, Rect, Screenshot, TurnComponent } from "../shared/protocol.js";
+import type { PromptContent } from "./agent.js";
 import type { PickedSource } from "./picked-source.js";
 
-export type TurnContent = Exclude<SDKUserMessage["message"]["content"], string>;
-
 export type TurnRequest = {
-  /** The element the turn's thread is about, or null for the whole app. */
+  /** Null for the whole app. */
   anchor: Anchor | null;
   turn: NewTurn;
-  /** The developer's earlier requests in the same thread, oldest first. */
+  /** Oldest first. */
   earlier: string[];
 };
 
-/** The component a turn is about: where the crash happened for a repair, otherwise the picked one. */
+/** The crash site for a repair, otherwise the picked component. */
 export function targetOf(anchor: Anchor | null, turn: NewTurn): TurnComponent | undefined {
   return turn.crash ? turn.crash.components[0] : anchor?.components[anchor.selected];
 }
 
-export function turnContent(request: TurnRequest, source: PickedSource | null, projectRoot: string): TurnContent {
+export function turnContent(request: TurnRequest, source: PickedSource | null, projectRoot: string): PromptContent {
   const locate = (component: TurnComponent) =>
     `${path.relative(projectRoot, component.location.file)}:${component.location.line}`;
   const lines = request.turn.crash
@@ -32,7 +30,7 @@ export function turnContent(request: TurnRequest, source: PickedSource | null, p
   if (!screenshot) return [{ type: "text", text }];
   return [
     { type: "text", text },
-    { type: "image", source: { type: "base64", media_type: "image/jpeg", data: screenshot.base64 } },
+    { type: "image", mimeType: "image/jpeg", base64: screenshot.base64 },
   ];
 }
 
@@ -79,7 +77,6 @@ function requestLines({ anchor, turn, earlier }: TurnRequest, locate: (component
   ];
 }
 
-/** A blank line, the heading and its items, or nothing when there are no items. */
 function section(heading: string, items: string[]) {
   return items.length > 0 ? ["", heading, ...items] : [];
 }

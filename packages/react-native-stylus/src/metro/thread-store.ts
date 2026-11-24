@@ -12,14 +12,19 @@ import type {
   TurnSnapshot,
   VerifyRequest,
 } from "../shared/protocol.js";
-import { AgentSession, type AgentSessionOptions } from "./agent-session.js";
+import type { Agent, AgentOptions } from "./agent.js";
+import { Checkpoints } from "./checkpoints.js";
 import { CodeChecker } from "./code-checker.js";
+import { createAgent, type AgentChoice } from "./create-agent.js";
 import { readPickedSource } from "./picked-source.js";
+import { runTurn } from "./run-turn.js";
 import { targetOf, turnContent } from "./turn-content.js";
 
-/** How long the queue waits for the app to report how a turn's edits ran on the device. */
+export type ThreadStoreOptions = AgentOptions & { agent: AgentChoice };
+
+/** How long a turn waits for the app to verify it. */
 const VERIFY_TIMEOUT_MS = 15_000;
-/** The target of a request about the whole app, which has no component to point at. */
+/** Target for a request about the whole app. */
 const APP_TARGET: TurnComponent = { name: "App", location: { file: "", line: 0 } };
 
 type Thread = { id: UUID; anchor: Anchor | null; turns: Turn[] };
@@ -35,47 +40,46 @@ type Turn = {
   target: TurnComponent;
   log: TurnLogEntry[];
   status: TurnStatus;
-  /** Whether the turn changed any file, including a turn that failed partway through. */
-  edited: boolean;
+  /** Snapshot id that undo restores. */
+  before: string | null;
+  /** Includes changes from a turn that failed partway. */
+  files: string[];
 };
 
-/** The request is only needed until the turn starts, so it isn't kept on the turn with its screenshot. */
+/** Kept off `Turn` so the screenshot is dropped once the turn starts. */
 type QueuedTurn = { turn: Turn; request: NewTurn };
 
 type Listener = (event: StylusEvent) => void;
 
-/**
- * Every thread and its turns. Turns from all threads run one at a time through a single Claude
- * Code conversation, and every change is streamed to the app's listeners.
- */
+/** Turns from every thread run one at a time through a single agent conversation. */
 export class ThreadStore {
-  readonly #options: AgentSessionOptions;
+  readonly #options: ThreadStoreOptions;
   readonly #threads = new Map<string, Thread>();
-  /** The turns of threads that still exist, by id. */
+  /** Only turns of threads that still exist. */
   readonly #turns = new Map<string, Turn>();
-  /** Turns in the order they started, across every thread, including removed ones. */
+  /** Start order across every thread, including removed ones. */
   #history: Turn[] = [];
   #queue: QueuedTurn[] = [];
-  /** The turn that is running or waiting to be verified. */
+  /** Running or awaiting verification. */
   #current: { turn: Turn; stop: AbortController } | null = null;
   #verification: { turn: Turn; finish: (entry: TurnLogEntry) => void } | null = null;
   #undoing = false;
   #undoable: string | null = null;
-  #session: AgentSession | null = null;
-  /** Started with the first session, so projects that never use Stylus don't pay for TypeScript. */
+  #session: Agent | null = null;
+  /** Created lazily so projects that never use Stylus don't load TypeScript. */
   #checker: CodeChecker | null = null;
+  #checkpoints: Promise<Checkpoints | null> | null = null;
   readonly #listeners = new Set<Listener>();
 
-  constructor(options: AgentSessionOptions) {
+  constructor(options: ThreadStoreOptions) {
     this.#options = options;
   }
 
-  /** Starts Claude Code ahead of the first request. */
   warm() {
     this.#agent();
   }
 
-  /** Sends `listener` a snapshot of every thread, then each later event. Returns a function that unsubscribes. */
+  /** Sends a snapshot first. Returns an unsubscribe function. */
   subscribe(listener: Listener) {
     listener({ type: "snapshot", threads: [...this.#threads.values()].map(threadSnapshot), undoable: this.#undoable });
     this.#listeners.add(listener);
@@ -109,7 +113,7 @@ export class ThreadStore {
     return turn.id;
   }
 
-  /** Stops the thread's unfinished turns and removes it. Changes its finished turns made stay. */
+  /** Changes made by its finished turns stay. */
   removeThread(threadId: string) {
     const thread = this.#thread(threadId);
     for (const turn of thread.turns) this.#stop(turn);
@@ -126,24 +130,29 @@ export class ThreadStore {
     this.#updateUndoable();
   }
 
-  /** Records what the app found when the turn's edits reached it, and lets the queue continue. */
+  /** Unblocks the queue. */
   verify(turnId: string, problem: VerifyRequest["problem"]) {
     if (this.#verification?.turn.id === turnId) this.#verification.finish({ type: "verified", problem });
   }
 
-  /** Puts back the files as they were before the turn, which also undoes every later turn's edits. */
+  /** Also undoes every later turn's edits. */
   async undo(turnId: string) {
     const turn = this.#turn(turnId);
     if (this.#current || this.#queue.length > 0 || this.#undoing) {
       throw new Error("Wait for the current change to finish before undoing.");
     }
-    if (turn.status !== "finished" || !turn.edited) throw new Error("This change can't be undone.");
+    const checkpoints = await this.#snapshots();
+    if (turn.status !== "finished" || turn.files.length === 0 || !turn.before || !checkpoints) {
+      throw new Error("This change can't be undone.");
+    }
 
     this.#undoing = true;
     try {
-      await this.#agent().undo(turn.id);
-      for (const later of this.#history.slice(this.#history.indexOf(turn))) {
-        if (later.status !== "finished" || !later.edited) continue;
+      const undone = this.#history
+        .slice(this.#history.indexOf(turn))
+        .filter((later) => later.status === "finished" && later.files.length > 0);
+      await checkpoints.restore(turn.before, [...new Set(undone.flatMap((later) => later.files))]);
+      for (const later of undone) {
         later.status = "undone";
         this.#log(later, { type: "undone" });
       }
@@ -156,8 +165,13 @@ export class ThreadStore {
 
   #agent() {
     this.#checker ??= new CodeChecker(this.#options.projectRoot);
-    this.#session ??= new AgentSession(this.#options, this.#checker);
+    this.#session ??= createAgent(this.#options.agent, this.#options);
     return this.#session;
+  }
+
+  #snapshots() {
+    this.#checkpoints ??= Checkpoints.open([this.#options.projectRoot, ...this.#options.additionalDirectories]);
+    return this.#checkpoints;
   }
 
   #thread(id: string) {
@@ -182,7 +196,8 @@ export class ThreadStore {
       target: targetOf(thread.anchor, request) ?? APP_TARGET,
       log: [],
       status: "queued",
-      edited: false,
+      before: null,
+      files: [],
     };
     thread.turns.push(turn);
     this.#turns.set(turn.id, turn);
@@ -190,7 +205,7 @@ export class ThreadStore {
   }
 
   #enqueue(turn: Turn, request: NewTurn) {
-    // A crash fix runs before any other waiting request, after any fixes already waiting.
+    // Repairs go ahead of other waiting requests, behind earlier repairs.
     const index = turn.origin === "repair" ? this.#queue.findIndex(({ turn }) => turn.origin !== "repair") : -1;
     this.#queue.splice(index === -1 ? this.#queue.length : index, 0, { turn, request });
     this.#updateUndoable();
@@ -217,7 +232,7 @@ export class ThreadStore {
     const { anchor } = turn.thread;
     const target = targetOf(anchor, request);
     const roots = [this.#options.projectRoot, ...this.#options.additionalDirectories];
-    // The inlined source only saves Claude a read, so a file that can't be read is left out.
+    // The inlined source only saves the agent a read, so failures are ignored.
     const source = target ? await readPickedSource(target, roots).catch(() => null) : null;
     if (signal.aborted) return;
 
@@ -226,27 +241,33 @@ export class ThreadStore {
       source,
       this.#options.projectRoot,
     );
-    const seen = source ? [{ file: source.file, mtimeMs: source.mtimeMs }] : [];
-    let done = false;
-    turn.edited = await this.#agent().run(
-      turn.id,
-      content,
-      seen,
-      (event) => {
-        if (turn.status !== "running") return;
-        if (event.type === "done") done = true;
-        this.#log(turn, { type: "transcript", event, at: Date.now() });
+    const agent = this.#agent();
+    const result = await runTurn({
+      id: turn.id,
+      agent,
+      checker: this.#checker!,
+      checkpoints: await this.#snapshots(),
+      projectRoot: this.#options.projectRoot,
+      prompt: { content, seen: source ? [{ file: source.file, mtimeMs: source.mtimeMs }] : [] },
+      emit: (event) => {
+        if (turn.status === "running") this.#log(turn, { type: "transcript", event, at: Date.now() });
       },
       signal,
-    );
+    });
+    turn.before = result.before;
+    turn.files = result.files;
+    if (result.agentBroken && this.#session === agent) {
+      agent.close();
+      this.#session = null;
+    }
     if (turn.status !== "running") return;
 
     // A repair is checked even when it changed nothing, since its point is that the crash is gone.
-    if (done && (turn.edited || turn.origin === "repair")) await this.#verify(turn);
+    if (result.finished && (turn.files.length > 0 || turn.origin === "repair")) await this.#verify(turn);
     turn.status = "finished";
   }
 
-  /** Waits for the app to report how the turn's edits ran, so the next turn's edits don't mix with them. */
+  /** Holds the queue so the next turn's edits don't mix with this one's. */
   #verify(turn: Turn) {
     turn.status = "verifying";
     return new Promise<void>((resolve) => {
@@ -261,7 +282,7 @@ export class ThreadStore {
     });
   }
 
-  /** A running turn is interrupted, and the session puts back its edits once it ends. */
+  /** A running turn's edits are put back once it ends. */
   #stop(turn: Turn) {
     if (turn.status === "queued") this.#queue = this.#queue.filter((queued) => queued.turn !== turn);
     else if (turn.status === "running") this.#current?.stop.abort();
@@ -270,10 +291,9 @@ export class ThreadStore {
     this.#log(turn, { type: "stopped", at: Date.now() });
   }
 
-  /** Closes Claude Code once no thread is left, so its process exits. */
   #closeIfIdle() {
     if (this.#threads.size > 0 || this.#current || !this.#session) return;
-    void this.#session.close();
+    this.#session.close();
     this.#session = null;
     this.#history = [];
   }
@@ -285,11 +305,11 @@ export class ThreadStore {
     this.#broadcast({ type: "undoable", turnId: undoable });
   }
 
-  /** Undo rewinds every later turn too, so only the latest change can be offered, and only once nothing is pending. */
+  /** Undo rewinds every later turn too, so only the latest change qualifies. */
   #findUndoable() {
     if (this.#current || this.#queue.length > 0) return null;
-    const latest = this.#history.findLast((turn) => turn.status === "finished" && turn.edited);
-    return latest && this.#threads.has(latest.thread.id) ? latest.id : null;
+    const latest = this.#history.findLast((turn) => turn.status === "finished" && turn.files.length > 0);
+    return latest?.before && this.#threads.has(latest.thread.id) ? latest.id : null;
   }
 
   #log(turn: Turn, entry: TurnLogEntry) {

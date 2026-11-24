@@ -3,7 +3,7 @@ import { Keyboard, Platform, type KeyboardEvent } from "react-native";
 
 export type KeyboardState = {
   height: number;
-  /** How long the keyboard takes to move, so views can move with it. */
+  /** Keyboard animation length in ms. */
   duration: number;
 };
 

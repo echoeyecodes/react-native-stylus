@@ -8,7 +8,7 @@ type Props = {
   icon: IconName;
   label: string;
   onPress?: () => void;
-  /** With `onPressOut`, makes a button that acts while it is held. */
+  /** With `onPressOut`, makes a hold-to-act button. */
   onPressIn?: () => void;
   onPressOut?: () => void;
   /** `filled` sits on a surface, `plain` sits inline with text, `accent` is the main action. */
@@ -19,7 +19,6 @@ type Props = {
   disabled?: boolean;
 };
 
-/** A round button carrying a single icon. */
 export function IconButton({
   icon,
   label,

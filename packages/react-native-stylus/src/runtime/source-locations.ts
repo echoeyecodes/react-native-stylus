@@ -1,10 +1,7 @@
 import type { SourceLocation, TurnComponent } from "../shared/protocol";
 import { LIBRARY, parseStackFrames, REACT_RUNTIME, symbolicate, type StackFrame } from "./stack-frames";
 
-/**
- * Turns React's debug stacks into the line of the project's JSX that created each element.
- * Elements created inside libraries come back as null.
- */
+/** Null for elements created inside libraries. */
 export async function projectLocations(origin: string, stacks: (string | null)[]): Promise<(SourceLocation | null)[]> {
   const perStack = stacks.map((stack) => (stack ? creationFrames(stack) : []));
   const symbolicated = await symbolicate(origin, perStack.flat());

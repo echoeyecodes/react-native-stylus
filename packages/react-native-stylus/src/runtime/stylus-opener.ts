@@ -3,11 +3,7 @@ import { DevSettings } from "react-native";
 let open: (() => void) | null = null;
 let menuItemAdded = false;
 
-/**
- * Remembers how to open the mounted `<Stylus>`, and adds "Edit with Stylus" to the dev menu.
- * React Native can't remove menu items, so the item is added once and opens whichever
- * `<Stylus>` mounted last.
- */
+/** React Native can't remove menu items, so the item is added once and opens the latest `<Stylus>`. */
 export function registerOpener(opener: () => void) {
   open = opener;
   if (menuItemAdded) return;

@@ -4,10 +4,7 @@ import type { CheckRequest, CheckResponse, Problem } from "./code-check-protocol
 
 export type { Problem };
 
-/**
- * Checks files for type and syntax errors with the project's own TypeScript, in a worker thread.
- * One checker serves every session, since they share the project.
- */
+/** Uses the project's own TypeScript. */
 export class CodeChecker {
   readonly #worker: Worker;
   readonly #pending = new Map<number, (problems: Problem[] | null) => void>();
@@ -26,13 +23,13 @@ export class CodeChecker {
     this.#worker.unref();
   }
 
-  /** The file's errors, or null when the project can't be checked. */
-  problems(file: string): Promise<Problem[] | null> {
+  /** Null when the project can't be checked. */
+  problems(file: string, contents?: string): Promise<Problem[] | null> {
     if (this.#stopped) return Promise.resolve(null);
     return new Promise((resolve) => {
       const id = this.#nextId++;
       this.#pending.set(id, resolve);
-      const request: CheckRequest = { id, file };
+      const request: CheckRequest = { id, file, contents };
       this.#worker.postMessage(request);
     });
   }

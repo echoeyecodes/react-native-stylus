@@ -15,11 +15,7 @@ type TouchHandlers = Pick<
   | "onResponderTerminate"
 >;
 
-/**
- * Calls `onHold` when two fingers rest on the screen. One-finger touches pass through to the app
- * untouched. When a second finger lands, the touch is claimed from the app, which cancels any
- * press underway, so the hold isn't also taken as a tap on whatever the first finger was on.
- */
+/** Claims the touch when a second finger lands, so the hold isn't also a tap on the first finger's target. */
 export function useTwoFingerHold(onHold: () => void, enabled: boolean): TouchHandlers {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const origins = useRef(new Map<number, { x: number; y: number }>());

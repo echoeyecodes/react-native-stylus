@@ -1,13 +1,10 @@
 export type NdjsonStream = {
-  /** Resolves when the response ends or the stream is closed, and rejects if the connection fails. */
+  /** Resolves on end or close; rejects if the connection fails. */
   done: Promise<void>;
   close: () => void;
 };
 
-/**
- * GETs a newline-delimited JSON response and calls `onMessage` for each line as it streams in.
- * Uses XMLHttpRequest because React Native's fetch doesn't expose a streaming body.
- */
+/** Uses XMLHttpRequest because React Native's fetch doesn't expose a streaming body. */
 export function streamNdjson<T>(url: string, onMessage: (message: T) => void): NdjsonStream {
   const xhr = new XMLHttpRequest();
   let read = 0;

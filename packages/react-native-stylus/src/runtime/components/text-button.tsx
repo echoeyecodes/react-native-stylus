@@ -4,7 +4,7 @@ import { themedStyles } from "../theme";
 type Props = {
   label: string;
   onPress: () => void;
-  /** `link` is accent-coloured text with no background, for actions inside the conversation. */
+  /** `link` is accent text with no background, for in-conversation actions. */
   tone?: "plain" | "accent" | "link";
 };
 

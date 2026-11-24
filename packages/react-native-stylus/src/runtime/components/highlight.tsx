@@ -5,7 +5,7 @@ import { motion, themedStyles } from "../theme";
 
 type Props = {
   frame: Rect | null;
-  /** Off while dragging, where the box should track the finger exactly. */
+  /** Off while dragging, so the box tracks the finger exactly. */
   animate: boolean;
 };
 

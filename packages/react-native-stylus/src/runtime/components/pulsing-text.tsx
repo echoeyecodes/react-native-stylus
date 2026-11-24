@@ -8,7 +8,6 @@ type Props = {
   numberOfLines?: number;
 };
 
-/** Marks work in progress. */
 export function PulsingText({ children, style, numberOfLines }: Props) {
   const opacity = useRef(new Animated.Value(1)).current;
 

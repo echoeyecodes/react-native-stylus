@@ -9,13 +9,12 @@ const SIZE = 60;
 const REACH = 72;
 
 type Props = {
-  /** Shown while a bubble is being dragged. */
+  /** While a bubble is being dragged. */
   shown: boolean;
-  /** The dragged bubble is over the target, so letting go removes it. */
+  /** Releasing now removes the dragged bubble. */
   hot: boolean;
 };
 
-/** Where bubbles are dragged to be removed, floating up from the bottom of the screen. */
 export function RemoveTarget({ shown, hot }: Props) {
   const styles = useStyles();
   const palette = usePalette();

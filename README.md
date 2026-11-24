@@ -1,12 +1,12 @@
 # Stylus
 
-Edit a React Native app from the app itself. Hold two fingers on any element, describe a change, and Claude Code edits the source while Fast Refresh updates the screen in your hand.
+Edit a React Native app from the app itself. Hold two fingers on any element, describe a change, and a coding agent (Claude Code by default, or Codex, OpenCode and other ACP agents) edits the source while Fast Refresh updates the screen in your hand.
 
 Setup, usage and how it works are in [packages/react-native-stylus/README.md](packages/react-native-stylus/README.md).
 
 ## Repository
 
-- `packages/react-native-stylus`: the library. `src/runtime` runs in the app, `src/metro` runs inside Metro and drives Claude Code, and `src/shared` holds the types they exchange.
+- `packages/react-native-stylus`: the library. `src/runtime` runs in the app, `src/metro` runs inside Metro and drives the agent, and `src/shared` holds the types they exchange.
 - `apps/example`: a small coffee-ordering app for trying Stylus.
 
 ## Development

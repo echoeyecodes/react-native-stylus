@@ -6,6 +6,7 @@ const VERBS: Record<ToolName, { running: string; done: string; fallback: string 
   Write: { running: "Writing", done: "Wrote", fallback: "a file" },
   Grep: { running: "Searching for", done: "Searched for", fallback: "code" },
   Glob: { running: "Finding", done: "Found", fallback: "files" },
+  Run: { running: "Running", done: "Ran", fallback: "a command" },
 };
 
 export function describeTool(name: ToolName, detail: string | null, running: boolean) {

@@ -8,26 +8,23 @@ import {
   type NewTurn,
   type VerifyRequest,
 } from "../shared/protocol.js";
-import type { AgentSessionOptions } from "./agent-session.js";
 import { readJsonBody } from "./read-json-body.js";
-import { ThreadStore } from "./thread-store.js";
+import { ThreadStore, type ThreadStoreOptions } from "./thread-store.js";
 
-/** An event stream that stays silent for long gets dropped, so it sends a blank line this often. */
+/** Idle event streams get dropped, so a blank line is sent this often. */
 const KEEPALIVE_MS = 25_000;
 const THREAD_GONE = "This thread was removed.";
 const TURN_GONE = "This request was removed.";
 
 type Route = {
   method: string;
-  /** Matched against the path after `ROUTE_PREFIX`; its first group is passed on as `id`. */
+  /** Matched against the path after `ROUTE_PREFIX`; group 1 is passed as `id`. */
   path: RegExp;
   handle: (req: IncomingMessage, res: ServerResponse, id: string) => unknown;
 };
 
-/**
- * Handles Stylus requests from the app. Returns false for any other request so Metro can serve it.
- */
-export function createStylusRoutes(options: AgentSessionOptions) {
+/** Returns false for non-Stylus requests so Metro can serve them. */
+export function createStylusRoutes(options: ThreadStoreOptions) {
   const store = new ThreadStore(options);
 
   function warm(_req: IncomingMessage, res: ServerResponse) {

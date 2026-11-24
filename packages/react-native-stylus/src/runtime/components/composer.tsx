@@ -29,9 +29,9 @@ function useComposer() {
 type ComposerProps = {
   draft: string;
   onDraftChange: (draft: string) => void;
-  /** A turn is streaming, so the button stops it instead of sending. */
+  /** The button stops the streaming turn instead of sending. */
   running: boolean;
-  /** Nothing can be sent right now, such as while a change is checked on the device. */
+  /** Such as while a change is checked on the device. */
   disabled: boolean;
   onSend: (text: string) => void;
   onStop: () => void;
@@ -74,7 +74,7 @@ type ComposerPathProps = {
   onPick: () => void;
 };
 
-/** The picked element's place in the component tree, shown when its name is tapped. */
+/** Shown when the element's name is tapped. */
 export function ComposerPath({ target, onSelectLevel, onPick }: ComposerPathProps) {
   const styles = useStyles();
   const { pathOpen } = useComposer();
@@ -102,7 +102,6 @@ export function ComposerRow({ children }: { children: ReactNode }) {
   return <View style={styles.row}>{children}</View>;
 }
 
-/** The element the next request is about. */
 export function ComposerTarget({ target }: { target: Target | null }) {
   const styles = useStyles();
   const palette = usePalette();
@@ -136,7 +135,7 @@ export function ComposerField({ children }: { children: ReactNode }) {
 type ComposerInputProps = {
   placeholder: string;
   autoFocus?: boolean;
-  /** The field takes focus when this changes after mounting, such as when another element is picked. */
+  /** Refocuses the field when it changes after mount. */
   focusKey?: unknown;
 };
 
@@ -171,7 +170,6 @@ export function ComposerInput({ placeholder, autoFocus, focusKey }: ComposerInpu
   );
 }
 
-/** Sends the draft, or stops the change in progress. */
 export function ComposerSubmit() {
   const styles = useStyles();
   const palette = usePalette();

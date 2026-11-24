@@ -15,7 +15,7 @@ import { useAnchorPositions } from "./use-anchor-positions";
 export type PickedComponent = InspectedComponent & { location: SourceLocation };
 
 export type Target = {
-  /** Innermost first, only components whose JSX lives in the project. */
+  /** Innermost first; only components whose JSX lives in the project. */
   components: PickedComponent[];
   selected: number;
   frame: Rect;
@@ -23,22 +23,18 @@ export type Target = {
 
 export type Hover = { name: string; frame: Rect };
 
-/**
- * `idle` shows only the bubbles. `composer` asks about a newly picked element, and `thread`
- * shows one thread's conversation.
- */
+/** `composer` is for a newly picked element; `thread` shows one conversation. */
 export type Mode = "idle" | "picking" | "composer" | "thread";
 
 export type StylusState = {
   mode: Mode;
-  /** The thread whose conversation is open. */
   openThreadId: string | null;
   hover: Hover | null;
   notice: string | null;
   /** The element picked for a new thread. */
   target: Target | null;
   threads: Threads;
-  /** Text to put back in the composer after a stop. `version` lets the same text return twice. */
+  /** Restored to the composer after a stop; `version` lets the same text return twice. */
   restore: { text: string; version: number };
   error: string | null;
 };
@@ -107,23 +103,19 @@ const NOTHING_HERE = "Nothing here comes from your code.";
 
 // Outlive Stylus being unmounted, as an app does while it loads a font.
 const health = new AppHealth();
-/** What the app looked like when each request was sent, for Compare. Lost on reload. */
+/** Screenshot from when each request was sent, for Compare. Lost on reload. */
 const befores = new Map<string, Screenshot>();
 /** Long enough for Fast Refresh to apply a turn's edits once they are released. */
 const REFRESH_MS = 500;
 /** Long enough after that for the app to render and run its effects. */
 const SETTLE_MS = 1000;
 
-/**
- * Drives Stylus in the app: picking elements, the threads about them, and checking that every
- * change still runs. Threads live in Metro, which streams them here, so they survive reloads.
- * Points and frames are in the coordinates of `rootRef`, which holds both the app and the overlay.
- */
+/** Points and frames are in `rootRef` coordinates, which hold both the app and the overlay. */
 export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefObject<HostInstance | null>) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const [origin] = useState(devServerOrigin);
   const [client] = useState<StylusClient | null>(() => (origin ? createStylusClient(origin) : null));
-  /** The app's own view of every thread, kept in step with each event as it arrives. */
+  /** Kept in step with each event as it arrives. */
   const threads = useRef(NO_THREADS);
   const rootOffset = useRef<Point>({ x: 0, y: 0 });
   /** Bumped by every hit test, so a slow one can't overwrite a newer result. */
@@ -145,10 +137,7 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     rootRef.current?.measureInWindow((x, y) => (rootOffset.current = { x, y }));
   }, [rootRef]);
 
-  /**
-   * Checks the app once a turn's edits have reached it. A developer's turn that broke the app gets
-   * one repair, unless the app was already crashing before it.
-   */
+  /** A developer's turn that broke the app gets one repair, unless the app was already crashing. */
   const verify = useCallback(
     (thread: Thread, turn: Turn) => {
       if (!client) return;
@@ -269,13 +258,9 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     [toLocal],
   );
 
-  /** Leaves picking without choosing anything. */
   const cancelPick = useCallback(() => dispatch({ type: "pickCancelled" }), []);
 
-  /**
-   * Starts a thread about the picked element, which then shows as a bubble pinned to it. An element
-   * that already has a bubble gets the request added to that thread instead.
-   */
+  /** An element that already has a bubble gets the request added to that thread. */
   const ask = useCallback(
     async (target: Target, text: string) => {
       const view = appRef.current;
@@ -310,7 +295,6 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     [anchors, appRef, client, fail],
   );
 
-  /** Adds a follow-up request to a thread. */
   const reply = useCallback(
     async (thread: Thread, text: string) => {
       const view = appRef.current;
@@ -326,7 +310,7 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     [appRef, client, fail],
   );
 
-  /** Asks Claude to fix the crash on screen, in `thread` or else in a new thread about the whole app. */
+  /** In `thread`, or else a new thread about the whole app. */
   const fixCrash = useCallback(
     async (thread?: Thread) => {
       const crash = health.crash;
@@ -344,7 +328,7 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     [client, fail],
   );
 
-  /** Metro puts back anything the turn had already edited. A stopped request returns to the composer. */
+  /** Metro puts back the turn's edits; the request text returns to the composer. */
   const stop = useCallback(
     (turn: Turn) => {
       client?.stop(turn.id).catch(fail);
@@ -353,7 +337,7 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     [client, fail],
   );
 
-  /** Restores the files to how they were before `turn`, which also undoes every later turn. */
+  /** Also undoes every later turn. */
   const undo = useCallback(
     async (thread: Thread, turn: Turn) => {
       if (!client) return;
@@ -368,7 +352,7 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     [client, fail],
   );
 
-  /** Removes a thread's bubble. The changes it made stay. */
+  /** The changes it made stay. */
   const removeThread = useCallback(
     (threadId: string) => {
       client?.removeThread(threadId).catch(fail);
@@ -381,7 +365,6 @@ export function useStylus(rootRef: RefObject<HostInstance | null>, appRef: RefOb
     dispatch({ type: "threadOpened", threadId });
   }, []);
 
-  /** Back to just the bubbles, from the composer or a conversation. */
   const close = useCallback(() => {
     Keyboard.dismiss();
     dispatch({ type: "closed" });

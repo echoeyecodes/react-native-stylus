@@ -5,20 +5,20 @@ import type { Rect } from "../../shared/protocol";
 import { motion, themedStyles } from "../theme";
 import { useKeyboard } from "../use-keyboard";
 
-/** Space kept between the picked element and the composer, or the top of the screen. */
+/** Space between the picked element and the composer or the screen top. */
 const GAP = 16;
 
 type Props = {
-  /** The picked element, which the app slides up to keep in view. */
+  /** The picked element to keep in view. */
   frame: Rect | null;
-  /** How far the app is slid up. The dock drives it and puts it back when it closes. */
+  /** The dock drives it and resets it on close. */
   appShift: Animated.Value;
-  /** Tapping outside the composer. */
+  /** Called on a tap outside the composer. */
   onDismiss: () => void;
   children: ReactNode;
 };
 
-/** Holds the composer on top of the keyboard, sliding the app up so the picked element stays visible. */
+/** Slides the app up so the picked element stays visible above the keyboard. */
 export function ComposerDock({ frame, appShift, onDismiss, children }: Props) {
   const styles = useStyles();
   const window = useWindowDimensions();
@@ -63,7 +63,7 @@ export function ComposerDock({ frame, appShift, onDismiss, children }: Props) {
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       <Pressable accessibilityLabel="Close the composer" onPress={onDismiss} style={StyleSheet.absoluteFill} />
-      {/* Keeps the app's content from showing through the system status bar once it slides under it. */}
+      {/* Covers the status bar area once the app slides under it. */}
       <Animated.View pointerEvents="none" style={[styles.cover, { height: insets.top, opacity: coverOpacity }]} />
       <Animated.View
         onLayout={(event) => setHeight(event.nativeEvent.layout.height)}

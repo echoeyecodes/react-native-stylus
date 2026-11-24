@@ -4,12 +4,11 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 type Props = {
   side: "left" | "right";
-  /** The colour behind the scrolling content, which the fade blends into. */
+  /** The background colour the fade blends into. */
   color: string;
   width?: number;
 };
 
-/** Fades scrolling content into its background at one edge, to show there is more that way. */
 export function EdgeFade({ side, color, width = 28 }: Props) {
   const id = useId();
   return (

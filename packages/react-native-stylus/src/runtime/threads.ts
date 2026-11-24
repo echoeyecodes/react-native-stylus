@@ -1,10 +1,9 @@
 import type { Anchor, StylusEvent, ThreadSnapshot } from "../shared/protocol";
 import { applyLogEntry, turnFromSnapshot, type Turn } from "./turns";
 
-/** A conversation about one element, shown as a bubble pinned to it. */
 export type Thread = {
   id: string;
-  /** Null for a thread about the whole app, such as a crash fix started from the crash screen. */
+  /** Null for a thread about the whole app. */
   anchor: Anchor | null;
   turns: Turn[];
 };
@@ -58,12 +57,10 @@ export function findTurn(threads: Threads, turnId: string): { thread: Thread; tu
   return null;
 }
 
-/** Whether Claude is editing right now, in any thread. */
 export function isEditing(threads: Threads) {
   return threads.list.some((thread) => thread.turns.some((turn) => turn.status === "running"));
 }
 
-/** The name the thread goes by: the picked component, or the app for a thread without an element. */
 export function threadName(thread: Thread) {
   return thread.anchor?.components[thread.anchor.selected]?.name ?? "App";
 }

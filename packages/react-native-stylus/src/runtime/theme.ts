@@ -56,7 +56,7 @@ export function usePalette(): Palette {
   return useColorScheme() === "dark" ? DARK : LIGHT;
 }
 
-/** Builds a component's styles once per appearance and returns a hook that picks the current one. */
+/** Builds styles once per appearance; the returned hook picks the current one. */
 export function themedStyles<T>(factory: (palette: Palette) => T): () => T {
   const light = factory(LIGHT);
   const dark = factory(DARK);

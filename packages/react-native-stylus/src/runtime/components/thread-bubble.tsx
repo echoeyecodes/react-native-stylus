@@ -25,7 +25,6 @@ type Props = {
 
 type Look = "queued" | "working" | "done" | "problem" | "idle";
 
-/** A thread's marker, pinned to its element and showing what its latest request is doing. */
 export function ThreadBubble({ thread, position, visible, onOpen, onDragStart, onDragMove, onDrop }: Props) {
   const styles = useStyles();
   const palette = usePalette();

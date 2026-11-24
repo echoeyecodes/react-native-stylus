@@ -15,13 +15,13 @@ import { ToolCall } from "./tool-call";
 
 type TurnContextValue = {
   turn: TurnData;
-  /** Whether a later turn is repairing this one. */
+  /** A later turn is repairing this one. */
   repaired: boolean;
-  /** Set when this turn's undo is the one to offer. */
+  /** Set only on the turn Undo can be offered for. */
   onUndo: (() => void) | null;
-  /** Set when the developer can ask for a repair of the crash this turn found. */
+  /** Set when the developer can ask for a repair of this turn's crash. */
   onFix: (() => void) | null;
-  /** Set when the app's look before this turn can be shown. Called with true while held. */
+  /** Set when a before screenshot exists; called with true while held. */
   onCompare: ((holding: boolean) => void) | null;
 };
 
@@ -35,7 +35,6 @@ function useTurn() {
 
 type Props = TurnContextValue & { children: ReactNode };
 
-/** One request and everything Claude did for it. */
 export function Turn({ children, ...value }: Props) {
   const styles = useStyles();
   return (

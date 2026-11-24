@@ -1,18 +1,17 @@
 export type AppProblem = {
   message: string;
-  /** A component stack for render errors, a call stack for other errors. */
+  /** Component stack for render errors, call stack otherwise. */
   stack: string;
   at: number;
 };
 
-/** What has gone wrong in the app, so Stylus can tell whether its own change broke it. */
+/** Lets Stylus tell whether its own change broke the app. */
 export class AppHealth {
-  /** The render error the app is showing the crash screen for. */
+  /** The render error behind the crash screen. */
   crash: AppProblem | null = null;
   #lastError: AppProblem | null = null;
   #retry: (() => void) | null = null;
 
-  /** Lets the error boundary be asked to render the app again. */
   attach(retry: () => void) {
     this.#retry = retry;
     return () => {
@@ -20,7 +19,7 @@ export class AppHealth {
     };
   }
 
-  /** Renders the crashed app again, so a fix that just landed can take effect. */
+  /** Re-renders the crashed app so a fix that just landed takes effect. */
   retry() {
     if (this.crash) this.#retry?.();
   }

@@ -5,20 +5,20 @@ import { parentPort, workerData } from "node:worker_threads";
 import type TypeScript from "typescript";
 import type { CheckRequest, CheckResponse, Problem } from "./code-check-protocol.js";
 
-/**
- * Keeps a TypeScript language service for the project, so each check only re-reads the files that
- * changed. Runs in its own thread because the checks are synchronous and would otherwise stall Metro.
- */
+// Own thread because the checks are synchronous and would stall Metro.
 const { projectRoot } = workerData as { projectRoot: string };
 const port = parentPort;
 if (!port) throw new Error("code-check-worker must run as a worker thread.");
 
 const service = createService(projectRoot);
-// Loads the type information once up front, so the first real check is quick.
+// Warms up so the first real check is quick.
 service?.warmUp();
 
 port.on("message", (request: CheckRequest) => {
-  const response: CheckResponse = { id: request.id, problems: service ? service.problems(request.file) : null };
+  const response: CheckResponse = {
+    id: request.id,
+    problems: service ? service.problems(request.file, request.contents) : null,
+  };
   port.postMessage(response);
 });
 
@@ -40,14 +40,22 @@ function createService(root: string) {
     noEmit: true,
   };
   const files = new Set(parsed?.fileNames ?? []);
-  /** Without a tsconfig, types would be guesses, so only syntax is checked. */
+  /** Without a tsconfig, types would be guesses. */
   const syntaxOnly = !parsed;
+  /** Contents checked in place of the file on disk, for one check. */
+  let override: { file: string; contents: string; version: string } | null = null;
+  let overrides = 0;
 
   const host: TypeScript.LanguageServiceHost = {
     getScriptFileNames: () => [...files],
-    getScriptVersion: (file) => (existsSync(file) ? String(statSync(file).mtimeMs) : "missing"),
-    getScriptSnapshot: (file) =>
-      existsSync(file) ? ts.ScriptSnapshot.fromString(readFileSync(file, "utf8")) : undefined,
+    getScriptVersion: (file) => {
+      if (override?.file === file) return override.version;
+      return existsSync(file) ? String(statSync(file).mtimeMs) : "missing";
+    },
+    getScriptSnapshot: (file) => {
+      if (override?.file === file) return ts.ScriptSnapshot.fromString(override.contents);
+      return existsSync(file) ? ts.ScriptSnapshot.fromString(readFileSync(file, "utf8")) : undefined;
+    },
     getCurrentDirectory: () => root,
     getCompilationSettings: () => options,
     getDefaultLibFileName: (compilerOptions) => ts.getDefaultLibFilePath(compilerOptions),
@@ -64,12 +72,18 @@ function createService(root: string) {
       const [first] = files;
       if (first && !syntaxOnly) languageService.getSemanticDiagnostics(first);
     },
-    problems(file: string): Problem[] {
+    problems(file: string, contents?: string): Problem[] {
       files.add(file);
-      if (!existsSync(file)) return [];
-      const diagnostics = syntaxOnly
-        ? languageService.getSyntacticDiagnostics(file)
-        : [...languageService.getSyntacticDiagnostics(file), ...languageService.getSemanticDiagnostics(file)];
+      if (contents === undefined && !existsSync(file)) return [];
+      override = contents === undefined ? null : { file, contents, version: `override-${(overrides += 1)}` };
+      let diagnostics: TypeScript.Diagnostic[];
+      try {
+        diagnostics = syntaxOnly
+          ? languageService.getSyntacticDiagnostics(file)
+          : [...languageService.getSyntacticDiagnostics(file), ...languageService.getSemanticDiagnostics(file)];
+      } finally {
+        override = null;
+      }
       return diagnostics
         .filter((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error)
         .map((diagnostic) => ({

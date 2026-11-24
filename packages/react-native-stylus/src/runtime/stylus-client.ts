@@ -9,7 +9,7 @@ import {
 } from "../shared/protocol";
 import { errorMessage, HttpError, streamNdjson, type NdjsonStream } from "./stream-ndjson";
 
-/** Waits this long before reconnecting, doubling up to the maximum while Metro stays away. */
+/** Doubles up to `MAX_RECONNECT_MS` while Metro stays away. */
 const RECONNECT_MS = 1000;
 const MAX_RECONNECT_MS = 8000;
 
@@ -32,10 +32,7 @@ export function createStylusClient(origin: string) {
   return {
     origin,
 
-    /**
-     * Follows every thread, starting with a snapshot of them all, and reconnects after Metro
-     * restarts or the network drops. Returns a function that stops following.
-     */
+    /** Reconnects after Metro restarts or the network drops. Returns an unsubscribe function. */
     subscribe(onEvent: (event: StylusEvent) => void, onSetupError: (error: SetupError) => void) {
       let stream: NdjsonStream | null = null;
       let timer: ReturnType<typeof setTimeout> | null = null;
@@ -68,7 +65,7 @@ export function createStylusClient(origin: string) {
       };
     },
 
-    /** Starts Claude Code before the first request, so it is ready by the time the developer sends. */
+    /** Starts the agent early so it's ready by the first request. */
     warm: () => send<void>("POST", "/warm"),
 
     createThread: (request: CreateThreadRequest) => send<CreateThreadResponse>("POST", "/threads", request),

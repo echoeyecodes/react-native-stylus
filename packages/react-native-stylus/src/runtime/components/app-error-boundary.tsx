@@ -3,14 +3,13 @@ import type { AppHealth } from "../app-health";
 
 type Props = {
   health: AppHealth;
-  /** Drawn in place of the app while it is crashed. */
   fallback: (error: Error) => ReactNode;
   children: ReactNode;
 };
 
 type State = { error: Error | null };
 
-/** Catches render errors in the app so they can't take Stylus down with it. */
+/** Keeps app render errors from taking Stylus down. */
 export class AppErrorBoundary extends Component<Props, State> {
   state: State = { error: null };
   #detach: (() => void) | null = null;
@@ -32,7 +31,7 @@ export class AppErrorBoundary extends Component<Props, State> {
     this.props.health.crashed(error, info.componentStack ?? "");
   }
 
-  /** Fast Refresh only retries a crashed boundary once it has applied an update, so Stylus retries it too. */
+  /** Fast Refresh only retries a crashed boundary after applying an update, so Stylus retries too. */
   retry = () => {
     this.props.health.recovered();
     this.setState({ error: null });

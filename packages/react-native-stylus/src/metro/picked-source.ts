@@ -12,10 +12,7 @@ export type PickedSource = {
   mtimeMs: number;
 };
 
-/**
- * Reads the file holding the component's JSX, which nearly every request edits. Paths come from
- * the network, so only files inside `roots` are read.
- */
+/** Paths come from the network, so only files inside `roots` are read. */
 export async function readPickedSource(component: TurnComponent, roots: string[]): Promise<PickedSource | null> {
   const file = path.resolve(component.location.file);
   if (!roots.some((root) => isInside(file, root))) return null;

@@ -36,35 +36,31 @@ function useSheet() {
   return value;
 }
 
-/** The half height fits the conversation, up to this share of the screen. */
+/** Max share of the screen the half height takes. */
 const HALF = 0.55;
-/** The least room the half height leaves for the conversation. */
+/** Minimum conversation height at the half height, in points. */
 const MIN_BODY = 160;
-/** Dragged this far below the half height, the sheet goes away. */
+/** Points below the half height that dismiss the sheet. */
 const DISMISS_DISTANCE = 80;
 const TOP_GAP = 8;
-/** A flick this fast carries the sheet past the height it was dragged nearest to. */
+/** Drag velocity is projected this far ahead to pick the resting height. */
 const FLICK_MS = 150;
-/** Within this distance of the end, new output keeps the conversation scrolled to the bottom. */
+/** Within this many points of the end, new output keeps the view at the bottom. */
 const STICK_DISTANCE = 48;
 
 type Props = {
   detent: Detent;
   onDetentChange: (detent: Detent) => void;
-  /** Called when the sheet is dragged down past its half height. */
+  /** Called when dragged down past the half height. */
   onDismiss: () => void;
   /** Slides the sheet off screen. */
   hidden: boolean;
-  /** Called once the sheet has finished sliding off screen. */
+  /** Called once the slide off screen finishes. */
   onHidden?: () => void;
   children: ReactNode;
 };
 
-/**
- * A bottom sheet that rests at two heights: the conversation up to about half the screen, or
- * nearly all of it. Its header drags it between them or down and away, and it rides above the
- * keyboard.
- */
+/** Rests at half or nearly full height; the header drags it between them or away. */
 export function StylusSheet({ detent, onDetentChange, onDismiss, hidden, onHidden, children }: Props) {
   const styles = useStyles();
   const window = useWindowDimensions();
@@ -198,7 +194,7 @@ export function SheetHeader({ children }: { children: ReactNode }) {
 type SheetTitleProps = {
   title: string;
   subtitle: string;
-  /** Pulses the subtitle while work is in progress. */
+  /** Pulses the subtitle. */
   busy: boolean;
 };
 
@@ -223,21 +219,18 @@ export function SheetTitle({ title, subtitle, busy }: SheetTitleProps) {
 }
 
 type SheetBodyProps = {
-  /** Scrolls to the newest output whenever this changes, such as when a message is sent. */
+  /** Scrolls to the newest output whenever this changes. */
   followKey?: unknown;
   children: ReactNode;
 };
 
-/**
- * The scrolling conversation. It follows new output until the developer drags it away from the end,
- * and follows again once they drag back down or send something.
- */
+/** Follows new output until dragged away from the end; follows again on drag back or send. */
 export function SheetBody({ followKey, children }: SheetBodyProps) {
   const styles = useStyles();
   const { onContentHeight } = useSheet();
   const scroll = useRef<ScrollViewInstance>(null);
   const following = useRef(true);
-  // Only the developer's own scrolling decides whether to follow; scrolls Stylus starts would end mid-animation.
+  // Only the developer's own drags decide following; programmatic scrolls would end mid-animation.
   const dragged = useRef(false);
 
   useEffect(() => {

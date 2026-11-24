@@ -4,7 +4,7 @@ import { TextButton } from "./text-button";
 
 type Props = {
   error: Error;
-  /** Hidden while Stylus is already working on a fix. */
+  /** Null hides the button while a fix is already running. */
   onFix: (() => void) | null;
 };
 

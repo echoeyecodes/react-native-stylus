@@ -6,7 +6,6 @@ import { PulsingText } from "./pulsing-text";
 
 export type ActivityStatus = "running" | "done" | "failed";
 
-/** The steps Claude took, one line each. */
 export function Activity({ children }: { children: ReactNode }) {
   const styles = useStyles();
   const rows = Children.toArray(children);
@@ -23,10 +22,9 @@ export function Activity({ children }: { children: ReactNode }) {
 }
 
 type ActivityRowProps = {
-  /** Finished steps recede, the running one reads strongest, and a failed one turns red. */
   status: ActivityStatus;
   label: string;
-  /** The step's result, at the end of the line, such as "+3 −1" or "No new errors". */
+  /** Shown at the end of the line, such as "+3 −1". */
   fact?: ReactNode;
   expanded?: boolean;
   /** Set when the row has details to show. */
@@ -62,7 +60,6 @@ export function ActivityRow({ status, label, fact, expanded = false, onToggle }:
   );
 }
 
-/** Content revealed under a row. */
 export function ActivityDetail({ children }: { children: ReactNode }) {
   const styles = useStyles();
   return <View style={styles.detail}>{children}</View>;

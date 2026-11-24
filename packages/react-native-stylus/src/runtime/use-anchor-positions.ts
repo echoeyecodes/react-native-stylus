@@ -8,12 +8,12 @@ import type { Thread } from "./threads";
 export const BUBBLE_SIZE = 30;
 /** Keeps bubbles this far from the screen's edges. */
 const EDGE = 8;
-/** How often elements that went missing are looked for again. */
+/** Retry interval for finding elements that went missing. */
 const LOCATE_EVERY_MS = 1500;
 
 type Tracked = {
   component: InspectedComponent | null;
-  /** Where the element was last seen, in overlay coordinates. */
+  /** Last seen, in overlay coordinates. */
   frame: Rect | null;
   measuring: boolean;
 };
@@ -21,13 +21,12 @@ type Tracked = {
 type Window = { width: number; height: number };
 
 export type AnchorPositions = {
-  /** The centre of each thread's bubble, moved every frame without re-rendering. */
+  /** Bubble centre, moved every frame without re-rendering. */
   position: (threadId: string) => Animated.ValueXY;
   /** Threads whose element is on screen right now. */
   visible: ReadonlySet<string>;
-  /** Starts following the element a thread was created from, so it needn't be looked up. */
+  /** Follows the element a thread was created from, skipping the lookup. */
   track: (threadId: string, component: InspectedComponent) => void;
-  /** Where a thread's element was last seen, if it has been found. */
   frameOf: (threadId: string) => Rect | null;
 };
 
@@ -39,11 +38,7 @@ type Options = {
   toLocal: (rect: Rect) => Rect;
 };
 
-/**
- * Follows the elements threads are pinned to as the app scrolls and changes. Each element is
- * measured every frame; one that unmounts, as Fast Refresh and reloads do, is looked up again by
- * its name and source location until it comes back.
- */
+/** An element that unmounts is looked up again by name and source location until it returns. */
 export function useAnchorPositions({ threads, view, origin, toLocal }: Options): AnchorPositions {
   const window = useWindowDimensions();
   const tracked = useRef(new Map<string, Tracked>());
@@ -164,7 +159,7 @@ export function useAnchorPositions({ threads, view, origin, toLocal }: Options):
   return { position, visible, track, frameOf };
 }
 
-/** Bubbles sit on the element's top right corner, kept inside the screen. */
+/** The element's top right corner, kept inside the screen. */
 function pinPoint(frame: Rect, window: Window) {
   const half = BUBBLE_SIZE / 2;
   return {

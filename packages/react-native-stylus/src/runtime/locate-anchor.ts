@@ -3,15 +3,10 @@ import type { Anchor, Rect, SourceLocation } from "../shared/protocol";
 import { componentsNamed, type InspectedComponent } from "./inspect-at-point";
 import { projectLocations } from "./source-locations";
 
-/** Debug stacks only change when the code that created an element changes, so their locations are kept. */
+/** Cached: debug stacks only change when the creating code changes. */
 const locations = new Map<string, SourceLocation | null>();
 
-/**
- * Finds the element a thread is pinned to after it has been mounted again, such as after Fast
- * Refresh or a reload: the component with the same name created in the same file, nearest the
- * line it was picked at, since edits move lines. Among several, such as rows of a list, the one
- * nearest to where the element was last seen wins.
- */
+/** Matches name and file, nearest the picked line since edits move lines, then nearest the last seen spot. */
 export async function locateAnchor(
   origin: string,
   view: HostInstance,

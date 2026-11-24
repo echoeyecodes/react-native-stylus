@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
+import type { AgentChoice } from "./create-agent.js";
 import { createStylusRoutes } from "./stylus-routes.js";
 
 type Middleware = (req: IncomingMessage, res: ServerResponse, next: (error?: unknown) => void) => void;
@@ -13,14 +14,13 @@ type MetroConfigLike = {
 };
 
 export type StylusOptions = {
-  /** The Claude model that makes the edits. Defaults to Sonnet. */
+  /** Defaults to Claude Code. */
+  agent?: AgentChoice;
+  /** In the agent's own naming. Defaults to Sonnet for Claude, otherwise the agent's default. */
   model?: string;
 };
 
-/**
- * Adds Stylus to a Metro config. The app's `<Stylus>` sends requests to these routes, and
- * Claude Code edits the project they describe.
- */
+/** Adds the routes the app's `<Stylus>` talks to. */
 export function withStylus<T extends MetroConfigLike>(config: T, options: StylusOptions = {}): T {
   const projectRoot = config.projectRoot ?? process.cwd();
   const handle = createStylusRoutes({
@@ -28,7 +28,8 @@ export function withStylus<T extends MetroConfigLike>(config: T, options: Stylus
     additionalDirectories: (config.watchFolders ?? []).filter(
       (folder) => !isInside(folder, projectRoot) && path.basename(folder) !== "node_modules",
     ),
-    model: options.model ?? "sonnet",
+    agent: options.agent ?? "claude",
+    model: options.model ?? null,
   });
   const enhanceMiddleware = config.server?.enhanceMiddleware;
 

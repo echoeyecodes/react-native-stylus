@@ -2,7 +2,6 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { Animated } from "react-native";
 import { motion } from "../theme";
 
-/** Fades and lifts its content in once, when it first mounts. */
 export function Appear({ children }: { children: ReactNode }) {
   const progress = useRef(new Animated.Value(0)).current;
 
